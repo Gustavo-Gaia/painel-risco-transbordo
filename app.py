@@ -327,6 +327,11 @@ if not st.session_state.admin:
         historico_exibicao = historico[["data", "hora", "nivel"]].copy()
         historico_exibicao.columns = ["Data", "Hora", "Nível"]
 
+        # 🔧 FORMATAR NÍVEL COM 2 CASAS DECIMAIS
+        historico_exibicao["Nível"] = historico_exibicao["Nível"].apply(
+            lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+        )
+
         def cor_historico(row):
             try:
                 nivel = float(row["Nível"])
