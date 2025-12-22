@@ -318,34 +318,69 @@ if not st.session_state.admin:
         # ==========================
         # 📄 RELATÓRIO GERAL
         # ==========================
-        st.subheader("📄 Relatório Geral de Monitoramento")
+st.subheader("📄 Relatório Geral de Monitoramento")
 
-        rel = gerar_relatorio_usuario(rios, municipios, leituras)
+rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
-        if not rel.empty:
-            rel_exibicao = rel.drop(columns=["cor"])
-# 🔧 AJUSTE 1 — OCULTAR REPETIÇÃO DO NOME DO RIO
-rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
-    rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
-)
+if not rel.empty:
+    rel_exibicao = rel.drop(columns=["cor"])
 
-            def cor_linha_fix(row):
-                cor = rel.loc[row.name, "cor"]
-                cores = {
-                    "green": "#d4edda",
-                    "orange": "#fff3cd",
-                    "red": "#f8d7da",
-                    "purple": "#e2d6f3"
-                }
-                return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
+    # 🔧 AJUSTE 1 — OCULTAR REPETIÇÃO DO NOME DO RIO
+    rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
+        rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
+    )
 
-            styled = rel_exibicao.style.apply(cor_linha_fix, axis=1)
+    def cor_linha_fix(row):
+        cor = rel.loc[row.name, "cor"]
+        cores = {
+            "green": "#d4edda",
+            "orange": "#fff3cd",
+            "red": "#f8d7da",
+            "purple": "#e2d6f3"
+        }
+        return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
 
-            st.components.v1.html(
-                styled.to_html(),
-                height=420,
-                scrolling=True
-            )
+    # 🔧 AJUSTE 2 — ESTILO PROFISSIONAL
+    styled = (
+        rel_exibicao.style
+        .apply(cor_linha_fix, axis=1)
+        .set_properties(**{
+            "text-align": "center",
+            "font-size": "13px",
+            "border": "1px solid #ccc",
+            "padding": "6px"
+        })
+        .set_properties(subset=["Rio", "Município"], **{
+            "text-align": "left",
+            "font-weight": "600"
+        })
+        .set_table_styles([
+            {
+                "selector": "th",
+                "props": [
+                    ("background-color", "#0B5ED7"),
+                    ("color", "white"),
+                    ("font-size", "14px"),
+                    ("text-align", "center"),
+                    ("padding", "8px")
+                ]
+            },
+            {
+                "selector": "table",
+                "props": [
+                    ("border-collapse", "collapse"),
+                    ("width", "100%")
+                ]
+            }
+        ])
+    )
+
+    st.components.v1.html(
+        styled.to_html(),
+        height=420,
+        scrolling=True
+    )
+
 
         # ==========================
         # RODAPÉ (RESTAURADO)
