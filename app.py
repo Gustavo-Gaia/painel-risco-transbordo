@@ -303,26 +303,40 @@ if not st.session_state.admin:
             }
             return [f"background-color: {cores.get(row['cor'], '#ffffff')}"] * len(row)
 
-        styled = rel.drop(columns=["cor"]).style.apply(
-            lambda r: cor_linha(rel.loc[r.name]),
-            axis=1
-        )
+        rel_exibicao = rel.drop(columns=["cor"])
+
+def cor_linha_fix(row):
+    cor = rel.loc[row.name, "cor"]
+    cores = {
+        "green": "#d4edda",
+        "orange": "#fff3cd",
+        "red": "#f8d7da",
+        "purple": "#e2d6f3"
+    }
+    return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
+
+styled = rel_exibicao.style.apply(
+    cor_linha_fix,
+    axis=1
+)
 
         st.components.v1.html(styled.to_html(), height=420, scrolling=True)
 
         st.markdown("---")
 
-        col_logo, col_texto = st.columns([1, 4])
-        with col_logo:
-            st.image("logo_redec10.png", width=90)
-        with col_texto:
-            st.markdown(
-                """
-                <div style="font-size:13px; color:#555; line-height:1.4;">
-                    Criado e desenvolvido por:<br>
-                    CB BM Gustavo Siqueira <strong>Gaia</strong><br>
-                    REDEC 10 – Norte
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+col_logo, col_texto = st.columns([1, 4])
+
+with col_logo:
+    st.image("logo_redec10.png", width=90)
+
+with col_texto:
+    st.markdown(
+        """
+        <div style="font-size:13px; color:#555; line-height:1.4;">
+            Criado e desenvolvido por:<br>
+            CB BM Gustavo Siqueira <strong>Gaia</strong><br>
+            REDEC 10 – Norte
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
