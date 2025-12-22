@@ -330,6 +330,13 @@ if not rel.empty:
         rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
     )
 
+# 🔧 AJUSTE 1.1 — REMOVER 'nan' VISUAL
+rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
+
+# 🔧 AJUSTE 1.2 — COTA SEM 'nan'
+rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
+
+   
     def cor_linha_fix(row):
         cor = rel.loc[row.name, "cor"]
         cores = {
