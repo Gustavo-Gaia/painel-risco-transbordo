@@ -149,6 +149,9 @@ if st.session_state.admin:
 
     base = municipios.merge(rios, on="id_rio")
 
+    # --------------------------
+    # CONTROLES PADRÃO
+    # --------------------------
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         data_padrao = st.date_input("Data padrão", value=None)
@@ -160,9 +163,14 @@ if st.session_state.admin:
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
 
+    st.divider()
+
     registros = []
     registros_vazios = []
 
+    # --------------------------
+    # FORMULÁRIO DE MEDIÇÕES
+    # --------------------------
     for i, row in base.iterrows():
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
@@ -175,7 +183,7 @@ if st.session_state.admin:
         with c4:
             h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
         with c5:
-            n = st.number_input("", key=f"n{i}", step=0.1)
+            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
 
         registro = {
             "id_rio": row["id_rio"],
@@ -190,17 +198,47 @@ if st.session_state.admin:
         else:
             registros.append(registro)
 
-    if st.button("Salvar medições", disabled=st.session_state.enviando):
+    st.divider()
+
+    # --------------------------
+    # BOTÃO SALVAR
+    # --------------------------
+    if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         if registros_vazios and not st.session_state.confirmar_envio:
-            st.warning("Existem medições sem nível preenchido. Deseja salvar mesmo assim?")
             st.session_state.confirmar_envio = True
         else:
             st.session_state.enviando = True
             st.rerun()
 
+    # --------------------------
+    # CONFIRMAÇÃO DE MEDIÇÕES VAZIAS
+    # --------------------------
+    if st.session_state.confirmar_envio and not st.session_state.enviando:
+        st.warning(
+            f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
+            "Deseja salvar mesmo assim?"
+        )
+
+        col_conf, col_cancel = st.columns(2)
+
+        with col_conf:
+            if st.button("✅ Confirmar envio"):
+                st.session_state.enviando = True
+                st.session_state.confirmar_envio = False
+                st.rerun()
+
+        with col_cancel:
+            if st.button("❌ Cancelar"):
+                st.session_state.confirmar_envio = False
+                st.rerun()
+
+    # --------------------------
+    # ENVIO DOS DADOS
+    # --------------------------
     if st.session_state.enviando:
-        with st.spinner("Salvando medições, aguarde..."):
+        with st.spinner("⏳ Salvando medições, aguarde..."):
             ok = True
+
             for r in registros + registros_vazios:
                 if r["nivel"] == "":
                     continue
@@ -220,9 +258,9 @@ if st.session_state.admin:
             st.session_state.confirmar_envio = False
 
             if ok:
-                st.success("Medições enviadas com sucesso!")
+                st.success("✅ Medições enviadas com sucesso!")
             else:
-                st.error("Erro ao enviar algumas medições.")
+                st.error("❌ Erro ao enviar algumas medições.")
 
             st.rerun()
 
