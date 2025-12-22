@@ -59,8 +59,7 @@ def calcular_situacao(nivel, cota):
         return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
 
 def enviar_formulario(payload):
-    r = requests.post(FORM_URL, data=payload)
-    return r.status_code == 200
+    return requests.post(FORM_URL, data=payload).status_code == 200
 
 # ==========================
 # RELATÓRIO GERAL (USUÁRIO)
@@ -92,9 +91,7 @@ def montar_relatorio(rios, municipios, leituras):
 def cor_nivel(valor, cota):
     if pd.isna(valor) or pd.isna(cota):
         return "background-color: #f0f0f0"
-
     _, cor, _, _ = calcular_situacao(valor, cota)
-
     cores = {
         "green": "#d4edda",
         "orange": "#fff3cd",
@@ -133,14 +130,12 @@ if not st.session_state.admin:
     if st.sidebar.button("Entrar"):
         if senha == ADMIN_SENHA:
             st.session_state.admin = True
-            st.session_state.confirmar_envio = False
             st.rerun()
         else:
             st.sidebar.error("Senha incorreta.")
 else:
     if st.sidebar.button("Sair"):
         st.session_state.admin = False
-        st.session_state.confirmar_envio = False
         st.rerun()
 
 # ==========================
@@ -186,44 +181,21 @@ if st.session_state.admin:
             "nivel": n if n > 0 else ""
         }
 
-        if n <= 0:
-            registros_vazios.append(registro)
-        else:
-            registros.append(registro)
+        (registros if n > 0 else registros_vazios).append(registro)
 
-    if st.button("Salvar medições", disabled=st.session_state.enviando):
-        if registros_vazios and not st.session_state.confirmar_envio:
-            st.warning("Existem medições sem nível preenchido. Deseja salvar mesmo assim?")
-            st.session_state.confirmar_envio = True
-        else:
-            st.session_state.enviando = True
-            st.rerun()
-
-    if st.session_state.enviando:
-        with st.spinner("Salvando medições, aguarde..."):
-            ok = True
-            for r in registros + registros_vazios:
-                if r["nivel"] == "":
-                    continue
-                payload = {
-                    FORM_FIELDS["id_rio"]: r["id_rio"],
-                    FORM_FIELDS["id_municipio"]: r["id_municipio"],
-                    FORM_FIELDS["data"]: r["data"],
-                    FORM_FIELDS["hora"]: r["hora"],
-                    FORM_FIELDS["nivel"]: r["nivel"],
-                }
-                if not enviar_formulario(payload):
-                    ok = False
-
-            st.session_state.enviando = False
-            st.session_state.confirmar_envio = False
-
-            if ok:
-                st.success("Medições enviadas com sucesso!")
-            else:
-                st.error("Erro ao enviar algumas medições.")
-
-            st.rerun()
+    if st.button("Salvar medições"):
+        for r in registros + registros_vazios:
+            if r["nivel"] == "":
+                continue
+            enviar_formulario({
+                FORM_FIELDS["id_rio"]: r["id_rio"],
+                FORM_FIELDS["id_municipio"]: r["id_municipio"],
+                FORM_FIELDS["data"]: r["data"],
+                FORM_FIELDS["hora"]: r["hora"],
+                FORM_FIELDS["nivel"]: r["nivel"],
+            })
+        st.success("Medições enviadas com sucesso!")
+        st.rerun()
 
     st.divider()
 
@@ -233,28 +205,78 @@ if st.session_state.admin:
 if not st.session_state.admin:
     st.title("🌊 Monitoramento de Rios")
 
+    # RELATÓRIO GERAL
     st.subheader("📄 Relatório Geral")
     relatorio = montar_relatorio(rios, municipios, leituras)
 
     styled = relatorio.style.apply(
-        lambda row: ["", "", "", cor_nivel(row["Penúltima"], row["Cota"]),
-                     cor_nivel(row["Última"], row["Cota"]), ""],
+        lambda r: ["", "", "",
+                   cor_nivel(r["Penúltima"], r["Cota"]),
+                   cor_nivel(r["Última"], r["Cota"]),
+                   ""],
         axis=1
     )
 
     st.dataframe(styled, use_container_width=True)
-
-    st.download_button(
-        "📥 Baixar relatório (HTML)",
-        data=styled.to_html(),
-        file_name="relatorio_monitoramento.html",
-        mime="text/html"
-    )
+    st.download_button("📥 Baixar relatório (HTML)", styled.to_html(), "relatorio.html")
 
     st.markdown("---")
 
+    # CONSULTA INDIVIDUAL (ÁREA ORIGINAL)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        rio_sel = st.selectbox("Rio", rios["nome_rio"])
+        id_rio = rios.loc[rios["nome_rio"] == rio_sel, "id_rio"].iloc[0]
+
+    with col2:
+        mun_df = municipios[municipios["id_rio"] == id_rio]
+        mun_sel = st.selectbox("Município", mun_df["nome_municipio"])
+        mun_row = mun_df[mun_df["nome_municipio"] == mun_sel].iloc[0]
+
+    filtro = leituras[
+        (leituras["id_rio"] == id_rio) &
+        (leituras["id_municipio"] == mun_row["id_municipio"])
+    ]
+
+    if filtro.empty:
+        st.warning("Sem registros.")
+    else:
+        filtro = filtro.sort_values(["data", "hora"])
+        ultima = filtro.iloc[-1]
+
+        situacao, cor, perc, texto = calcular_situacao(
+            ultima["nivel"], mun_row.get("nivel_transbordo")
+        )
+
+        st.subheader("📌 Situação Atual")
+        st.markdown(
+            f"<div style='color:{cor}; font-size:18px;'><b>{situacao}</b></div>",
+            unsafe_allow_html=True
+        )
+        st.markdown(texto)
+
+        st.subheader("📊 Evolução do Nível")
+        filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
+        st.altair_chart(
+            alt.Chart(filtro).mark_line().encode(
+                x="data_hora:T", y="nivel:Q"
+            ),
+            use_container_width=True
+        )
+
+        st.subheader("📋 Histórico")
+        if mun_row.get("fonte"):
+            st.markdown(f"*Fonte: {mun_row['fonte']}*")
+
+        st.dataframe(
+            filtro[["data", "hora", "nivel"]]
+            .sort_values(["data", "hora"], ascending=False),
+            use_container_width=True
+        )
+
 # ==========================
-# RODAPÉ — RESTAURADO
+# RODAPÉ
 # ==========================
 st.markdown("---")
 col_logo, col_texto = st.columns([1, 4])
@@ -265,7 +287,7 @@ with col_logo:
 with col_texto:
     st.markdown(
         """
-        <div style="font-size:13px; color:#555; line-height:1.4;">
+        <div style="font-size:13px; color:#555;">
         Criado e desenvolvido por:<br>
         CB BM Gustavo Siqueira <strong>Gaia</strong><br>
         REDEC 10 – Norte
