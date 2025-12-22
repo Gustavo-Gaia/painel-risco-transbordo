@@ -342,6 +342,10 @@ if not st.session_state.admin:
                 height=420,
                 scrolling=True
             )
+            rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
+    rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
+)
+
 
         # ==========================
         # RODAPÉ (RESTAURADO)
