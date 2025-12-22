@@ -325,7 +325,7 @@ if not st.session_state.admin:
         historico = filtro.sort_values(["data", "hora"], ascending=False)
 
         historico_exibicao = historico[["data", "hora", "nivel"]].copy()
-        historico_exibicao.columns = ["Data", "Hora", "Nível (m)"]
+        historico_exibicao.columns = ["Data", "Hora", "Nível"]
 
         # 🔧 FORMATAR NÍVEL COM 2 CASAS DECIMAIS
         historico_exibicao["Nível"] = historico_exibicao["Nível"].apply(
