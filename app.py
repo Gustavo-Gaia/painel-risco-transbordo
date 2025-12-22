@@ -327,7 +327,7 @@ historico_exibicao = historico[["data", "hora", "nivel"]].copy()
 historico_exibicao.columns = ["Data", "Hora", "Nível"]
 
 st.dataframe(
-    historico_exibicao,
+    historico_exibicao.reset_index(drop=True),
     use_container_width=True,
     height=320
 )
