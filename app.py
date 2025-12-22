@@ -324,6 +324,10 @@ if not st.session_state.admin:
 
         if not rel.empty:
             rel_exibicao = rel.drop(columns=["cor"])
+# 🔧 AJUSTE 1 — OCULTAR REPETIÇÃO DO NOME DO RIO
+rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
+    rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
+)
 
             def cor_linha_fix(row):
                 cor = rel.loc[row.name, "cor"]
@@ -342,10 +346,6 @@ if not st.session_state.admin:
                 height=420,
                 scrolling=True
             )
-            rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
-    rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
-)
-
 
         # ==========================
         # RODAPÉ (RESTAURADO)
