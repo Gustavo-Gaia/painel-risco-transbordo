@@ -275,6 +275,9 @@ if not st.session_state.admin:
         if perc is not None and not math.isnan(perc):
             st.markdown(f"**Percentual da cota:** {perc:.1f}%")
 
+        # ==========================
+        # 📊 GRÁFICO COM LINHA DE TRANBORDO
+        # ==========================
         st.subheader("📊 Evolução do Nível do Rio")
 
         filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
@@ -288,55 +291,77 @@ if not st.session_state.admin:
             y=alt.Y("nivel:Q", title="Nível do Rio")
         )
 
-        st.altair_chart(grafico_nivel, use_container_width=True)
+        layers = [grafico_nivel]
 
+        try:
+            cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
+            if pd.isna(cota):
+                cota = None
+        except:
+            cota = None
+
+        if cota and cota > 0:
+            linha_cota = alt.Chart(
+                pd.DataFrame({"cota": [cota]})
+            ).mark_rule(
+                color="#DC3545",
+                strokeDash=[6, 4],
+                strokeWidth=2
+            ).encode(y="cota:Q")
+            layers.append(linha_cota)
+
+        st.altair_chart(
+            alt.layer(*layers).resolve_scale(y="shared"),
+            use_container_width=True
+        )
+
+        # ==========================
+        # 📄 RELATÓRIO GERAL
+        # ==========================
         st.subheader("📄 Relatório Geral de Monitoramento")
 
         rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
-        def cor_linha(row):
-            cores = {
-                "green": "#d4edda",
-                "orange": "#fff3cd",
-                "red": "#f8d7da",
-                "purple": "#e2d6f3"
-            }
-            return [f"background-color: {cores.get(row['cor'], '#ffffff')}"] * len(row)
+        if not rel.empty:
+            rel_exibicao = rel.drop(columns=["cor"])
 
-        rel_exibicao = rel.drop(columns=["cor"])
+            def cor_linha_fix(row):
+                cor = rel.loc[row.name, "cor"]
+                cores = {
+                    "green": "#d4edda",
+                    "orange": "#fff3cd",
+                    "red": "#f8d7da",
+                    "purple": "#e2d6f3"
+                }
+                return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
 
-def cor_linha_fix(row):
-    cor = rel.loc[row.name, "cor"]
-    cores = {
-        "green": "#d4edda",
-        "orange": "#fff3cd",
-        "red": "#f8d7da",
-        "purple": "#e2d6f3"
-    }
-    return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
+            styled = rel_exibicao.style.apply(cor_linha_fix, axis=1)
 
-styled = rel_exibicao.style.apply(
-    cor_linha_fix,
-    axis=1
-)
+            st.components.v1.html(
+                styled.to_html(),
+                height=420,
+                scrolling=True
+            )
 
-        st.components.v1.html(styled.to_html(), height=420, scrolling=True)
-
+        # ==========================
+        # RODAPÉ (RESTAURADO)
+        # ==========================
         st.markdown("---")
 
-col_logo, col_texto = st.columns([1, 4])
+        col_logo, col_texto = st.columns([1, 4])
 
-with col_logo:
-    st.image("logo_redec10.png", width=90)
+        with col_logo:
+            st.image("logo_redec10.png", width=90)
 
-with col_texto:
-    st.markdown(
-        """
-        <div style="font-size:13px; color:#555; line-height:1.4;">
-            Criado e desenvolvido por:<br>
-            CB BM Gustavo Siqueira <strong>Gaia</strong><br>
-            REDEC 10 – Norte
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        with col_texto:
+            st.markdown(
+                """
+                <div style="font-size:13px; color:#555; line-height:1.4;">
+                    Criado e desenvolvido por:<br>
+                    CB BM Gustavo Siqueira <strong>Gaia</strong><br>
+                    REDEC 10 – Norte
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
