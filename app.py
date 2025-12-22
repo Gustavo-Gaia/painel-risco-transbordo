@@ -64,6 +64,42 @@ def enviar_formulario(payload):
     r = requests.post(FORM_URL, data=payload)
     return r.status_code == 200
 
+def gerar_relatorio_usuario(rios, municipios, leituras):
+    base = municipios.merge(rios, on="id_rio")
+    linhas = []
+
+    for _, row in base.iterrows():
+        filtro = leituras[
+            (leituras["id_rio"] == row["id_rio"]) &
+            (leituras["id_municipio"] == row["id_municipio"])
+        ].sort_values(["data", "hora"])
+
+        if filtro.empty:
+            continue
+
+        ultima = filtro.iloc[-1]
+        penultima = filtro.iloc[-2] if len(filtro) > 1 else None
+
+        situacao, cor, _, _ = calcular_situacao(
+            ultima["nivel"], row.get("nivel_transbordo")
+        )
+
+        linhas.append({
+            "Rio": row["nome_rio"],
+            "Município": row["nome_municipio"],
+            "Cota de Transbordo": row.get("nivel_transbordo"),
+            "Penúltima Medição": f"{penultima['nivel']:.2f}" if penultima is not None else "-",
+            "Última Medição": f"{ultima['nivel']:.2f}",
+            "Datas": (
+                f"{penultima['data']} / {ultima['data']}"
+                if penultima is not None else ultima["data"]
+            ),
+            "Fonte": row.get("fonte"),
+            "cor": cor
+        })
+
+    return pd.DataFrame(linhas)
+
 # ==========================
 # CARREGAMENTO DE DADOS
 # ==========================
@@ -239,9 +275,6 @@ if not st.session_state.admin:
         if perc is not None and not math.isnan(perc):
             st.markdown(f"**Percentual da cota:** {perc:.1f}%")
 
-        # ==========================
-        # 📊 GRÁFICO
-        # ==========================
         st.subheader("📊 Evolução do Nível do Rio")
 
         filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
@@ -255,53 +288,33 @@ if not st.session_state.admin:
             y=alt.Y("nivel:Q", title="Nível do Rio")
         )
 
-        layers = [grafico_nivel]
+        st.altair_chart(grafico_nivel, use_container_width=True)
 
-        try:
-            cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
-            if pd.isna(cota):
-                cota = None
-        except:
-            cota = None
+        st.subheader("📄 Relatório Geral de Monitoramento")
 
-        if cota and cota > 0:
-            linha_cota = alt.Chart(
-                pd.DataFrame({"cota": [cota]})
-            ).mark_rule(
-                color="#DC3545",
-                strokeDash=[6, 4],
-                strokeWidth=2
-            ).encode(y="cota:Q")
-            layers.append(linha_cota)
+        rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
-        st.altair_chart(
-            alt.layer(*layers).resolve_scale(y="shared"),
-            use_container_width=True
+        def cor_linha(row):
+            cores = {
+                "green": "#d4edda",
+                "orange": "#fff3cd",
+                "red": "#f8d7da",
+                "purple": "#e2d6f3"
+            }
+            return [f"background-color: {cores.get(row['cor'], '#ffffff')}"] * len(row)
+
+        styled = rel.drop(columns=["cor"]).style.apply(
+            lambda r: cor_linha(rel.loc[r.name]),
+            axis=1
         )
 
-        # ==========================
-        # 📋 HISTÓRICO
-        # ==========================
-        st.subheader("📋 Histórico de Medições")
-
-        fonte = mun_row.get("fonte")
-        if isinstance(fonte, str) and fonte.strip():
-            st.markdown(f"*Fonte: {fonte}*")
-
-        st.dataframe(
-            filtro[["data", "hora", "nivel"]].sort_values(
-                ["data", "hora"], ascending=False
-            ),
-            use_container_width=True
-        )
+        st.components.v1.html(styled.to_html(), height=420, scrolling=True)
 
         st.markdown("---")
 
         col_logo, col_texto = st.columns([1, 4])
-
         with col_logo:
             st.image("logo_redec10.png", width=90)
-
         with col_texto:
             st.markdown(
                 """
