@@ -314,6 +314,23 @@ if not st.session_state.admin:
             alt.layer(*layers).resolve_scale(y="shared"),
             use_container_width=True
         )
+# ==========================
+# 📋 HISTÓRICO DE MEDIÇÕES
+# ==========================
+st.subheader("📋 Histórico de Medições")
+st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
+
+historico = filtro.sort_values(["data", "hora"], ascending=False)
+
+historico_exibicao = historico[["data", "hora", "nivel"]].copy()
+
+historico_exibicao.columns = ["Data", "Hora", "Nível"]
+
+st.dataframe(
+    historico_exibicao,
+    use_container_width=True,
+    height=320
+)
 
 # ==========================
 # 📄 RELATÓRIO GERAL
