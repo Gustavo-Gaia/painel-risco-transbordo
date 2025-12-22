@@ -314,101 +314,100 @@ if not st.session_state.admin:
             alt.layer(*layers).resolve_scale(y="shared"),
             use_container_width=True
         )
-# ==========================
-# 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
-# ==========================
-st.markdown(
-    """
-    <div style="
-        display:flex;
-        gap:18px;
-        flex-wrap:wrap;
-        align-items:center;
-        margin-bottom:10px;
-        font-size:13px;
-    ">
+        # ==========================
+        # 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
+        # ==========================
+        st.markdown(
+            """
+            <div style="
+                display:flex;
+                gap:18px;
+                flex-wrap:wrap;
+                align-items:center;
+                margin-bottom:10px;
+                font-size:13px;
+            ">
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#d4edda; border-radius:3px;"></span>
-            <strong>Normal</strong> (&lt; 85%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#d4edda; border-radius:3px;"></span>
+                    <strong>Normal</strong> (&lt; 85%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#fff3cd; border-radius:3px;"></span>
-            <strong>Alerta</strong> (85–99%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#fff3cd; border-radius:3px;"></span>
+                    <strong>Alerta</strong> (85–99%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#f8d7da; border-radius:3px;"></span>
-            <strong>Transbordo</strong> (100–120%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#f8d7da; border-radius:3px;"></span>
+                    <strong>Transbordo</strong> (100–120%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#e2d6f3; border-radius:3px;"></span>
-            <strong>Risco Hidrológico Extremo</strong> (&gt; 120%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#e2d6f3; border-radius:3px;"></span>
+                    <strong>Risco Hidrológico Extremo</strong> (&gt; 120%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#e9ecef; border-radius:3px;"></span>
-            <strong>Sem cota definida</strong>
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#e9ecef; border-radius:3px;"></span>
+                    <strong>Sem cota definida</strong>
+                </div>
 
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-# ==========================
-# 📋 HISTÓRICO DE MEDIÇÕES (PADRÃO OFICIAL)
-# ==========================
+        # ==========================
+        # 📋 HISTÓRICO DE MEDIÇÕES
+        # ==========================
+        st.subheader("📋 Histórico de Medições")
+        st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
 
-st.subheader("📋 Histórico de Medições")
-st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
+        historico = filtro.sort_values(["data", "hora"], ascending=False)
 
-historico = filtro.sort_values(["data", "hora"], ascending=False)
+        historico_exibicao = historico[["data", "hora", "nivel"]].copy()
+        historico_exibicao.columns = ["Data", "Hora", "Nível"]
 
-historico_exibicao = historico[["data", "hora", "nivel"]].copy()
-historico_exibicao.columns = ["Data", "Hora", "Nível"]
+        def cor_historico(row):
+            try:
+                nivel = float(row["Nível"])
+                cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
+            except:
+                return ["background-color: #e9ecef"] * len(row)
 
-def cor_historico(row):
-    try:
-        nivel = float(row["Nível"])
-        cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
-    except:
-        return ["background-color: #e9ecef"] * len(row)  # sem cota
+            if pd.isna(cota) or cota <= 0:
+                return ["background-color: #e9ecef"] * len(row)
 
-    if pd.isna(cota) or cota <= 0:
-        return ["background-color: #e9ecef"] * len(row)
+            perc = (nivel / cota) * 100
 
-    perc = (nivel / cota) * 100
+            if perc < 85:
+                cor = "#d4edda"
+            elif perc < 100:
+                cor = "#fff3cd"
+            elif perc <= 120:
+                cor = "#f8d7da"
+            else:
+                cor = "#e2d6f3"
 
-    if perc < 85:
-        cor = "#d4edda"   # green
-    elif perc < 100:
-        cor = "#fff3cd"   # orange
-    elif perc <= 120:
-        cor = "#f8d7da"   # red
-    else:
-        cor = "#e2d6f3"   # purple
+            return [f"background-color: {cor}"] * len(row)
 
-    return [f"background-color: {cor}"] * len(row)
+        styled_historico = (
+            historico_exibicao
+            .reset_index(drop=True)
+            .style
+            .apply(cor_historico, axis=1)
+            .set_properties(**{
+                "text-align": "center",
+                "font-size": "13px"
+            })
+        )
 
-styled_historico = (
-    historico_exibicao
-    .reset_index(drop=True)
-    .style
-    .apply(cor_historico, axis=1)
-    .set_properties(**{
-        "text-align": "center",
-        "font-size": "13px"
-    })
-)
-
-st.dataframe(
-    styled_historico,
-    use_container_width=True,
-    height=320
-)
+        st.dataframe(
+            styled_historico,
+            use_container_width=True,
+            height=320
+        )
 
 # ==========================
 # 📄 RELATÓRIO GERAL
