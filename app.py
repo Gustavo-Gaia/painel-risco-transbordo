@@ -315,7 +315,7 @@ if not st.session_state.admin:
             use_container_width=True
         )
 # ==========================
-# 📋 HISTÓRICO DE MEDIÇÕES
+# 📋 HISTÓRICO DE MEDIÇÕES (PADRÃO OFICIAL)
 # ==========================
 st.subheader("📋 Histórico de Medições")
 st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
@@ -323,11 +323,44 @@ st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
 historico = filtro.sort_values(["data", "hora"], ascending=False)
 
 historico_exibicao = historico[["data", "hora", "nivel"]].copy()
-
 historico_exibicao.columns = ["Data", "Hora", "Nível"]
 
+def cor_historico(row):
+    try:
+        nivel = float(row["Nível"])
+        cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
+    except:
+        return ["background-color: #e9ecef"] * len(row)  # sem cota
+
+    if pd.isna(cota) or cota <= 0:
+        return ["background-color: #e9ecef"] * len(row)
+
+    perc = (nivel / cota) * 100
+
+    if perc < 85:
+        cor = "#d4edda"   # green
+    elif perc < 100:
+        cor = "#fff3cd"   # orange
+    elif perc <= 120:
+        cor = "#f8d7da"   # red
+    else:
+        cor = "#e2d6f3"   # purple
+
+    return [f"background-color: {cor}"] * len(row)
+
+styled_historico = (
+    historico_exibicao
+    .reset_index(drop=True)
+    .style
+    .apply(cor_historico, axis=1)
+    .set_properties(**{
+        "text-align": "center",
+        "font-size": "13px"
+    })
+)
+
 st.dataframe(
-    historico_exibicao.reset_index(drop=True),
+    styled_historico,
     use_container_width=True,
     height=320
 )
