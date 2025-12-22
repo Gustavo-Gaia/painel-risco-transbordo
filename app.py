@@ -10,13 +10,13 @@ from datetime import date, time
 # ==========================
 st.set_page_config(page_title="Monitoramento de Rios", layout="wide")
 
-SHEET_ID = "1fEClZLaPGavDL1RZ4LzS3D_N3Tw4KF8NHcR_60i1zVU"
+SHEET_ID = st.secrets["SHEET_ID"]
 
 ABA_RIOS = "rios"
 ABA_MUNICIPIOS = "municipios"
 ABA_LEITURAS = "leituras"
 
-FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfWLs_Ojke8kZ8KGQpe-oV8F6C0ziacqjzgrzlTKMHcPRdEdw/formResponse"
+FORM_URL = st.secrets["FORM_URL"]
 
 FORM_FIELDS = {
     "id_rio": "entry.2045951420",
@@ -26,7 +26,7 @@ FORM_FIELDS = {
     "nivel": "entry.718891381",
 }
 
-ADMIN_SENHA = "49427"
+ADMIN_SENHA = st.secrets["ADMIN_SENHA"]
 
 # ==========================
 # FUNÇÕES AUXILIARES
