@@ -315,51 +315,51 @@ if not st.session_state.admin:
             alt.layer(*layers).resolve_scale(y="shared"),
             use_container_width=True
         )
+
         # ==========================
-# 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
-# ==========================
-components.html(
-    """
-    <div style="
-        display:flex;
-        gap:18px;
-        flex-wrap:wrap;
-        align-items:center;
-        margin-bottom:12px;
-        font-size:13px;
-        font-family: Arial, sans-serif;
-    ">
+        # 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
+        # ==========================
+        components.html(
+            """
+            <div style="
+                display:flex;
+                gap:18px;
+                flex-wrap:wrap;
+                align-items:center;
+                margin-bottom:12px;
+                font-size:13px;
+                font-family: Arial, sans-serif;
+            ">
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#d4edda; border-radius:3px;"></span>
-            <strong>Normal</strong> (&lt; 85%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#d4edda; border-radius:3px;"></span>
+                    <strong>Normal</strong> (&lt; 85%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#fff3cd; border-radius:3px;"></span>
-            <strong>Alerta</strong> (85–99%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#fff3cd; border-radius:3px;"></span>
+                    <strong>Alerta</strong> (85–99%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#f8d7da; border-radius:3px;"></span>
-            <strong>Transbordo</strong> (100–120%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#f8d7da; border-radius:3px;"></span>
+                    <strong>Transbordo</strong> (100–120%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#e2d6f3; border-radius:3px;"></span>
-            <strong>Risco Hidrológico Extremo</strong> (&gt; 120%)
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#e2d6f3; border-radius:3px;"></span>
+                    <strong>Risco Hidrológico Extremo</strong> (&gt; 120%)
+                </div>
 
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:14px; height:14px; background:#e9ecef; border-radius:3px;"></span>
-            <strong>Sem cota definida</strong>
-        </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:14px; height:14px; background:#e9ecef; border-radius:3px;"></span>
+                    <strong>Sem cota definida</strong>
+                </div>
 
-    </div>
-    """,
-    height=70
-)
-
+            </div>
+            """,
+            height=70
+        )
 
         # ==========================
         # 📋 HISTÓRICO DE MEDIÇÕES
