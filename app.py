@@ -315,9 +315,9 @@ if not st.session_state.admin:
             use_container_width=True
         )
 
-        # ==========================
-        # 📄 RELATÓRIO GERAL
-        # ==========================
+# ==========================
+# 📄 RELATÓRIO GERAL
+# ==========================
 st.subheader("📄 Relatório Geral de Monitoramento")
 
 rel = gerar_relatorio_usuario(rios, municipios, leituras)
@@ -381,26 +381,25 @@ if not rel.empty:
         scrolling=True
     )
 
+# ==========================
+# RODAPÉ (RESTAURADO)
+# ==========================
+st.markdown("---")
 
-        # ==========================
-        # RODAPÉ (RESTAURADO)
-        # ==========================
-        st.markdown("---")
+col_logo, col_texto = st.columns([1, 4])
 
-        col_logo, col_texto = st.columns([1, 4])
+with col_logo:
+    st.image("logo_redec10.png", width=90)
 
-        with col_logo:
-            st.image("logo_redec10.png", width=90)
-
-        with col_texto:
-            st.markdown(
-                """
-                <div style="font-size:13px; color:#555; line-height:1.4;">
-                    Criado e desenvolvido por:<br>
-                    CB BM Gustavo Siqueira <strong>Gaia</strong><br>
-                    REDEC 10 – Norte
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+with col_texto:
+    st.markdown(
+        """
+        <div style="font-size:13px; color:#555; line-height:1.4;">
+            Criado e desenvolvido por:<br>
+            CB BM Gustavo Siqueira <strong>Gaia</strong><br>
+            REDEC 10 – Norte
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
