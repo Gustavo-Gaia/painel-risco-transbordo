@@ -315,9 +315,6 @@ if not st.session_state.admin:
             use_container_width=True
         )
 # ==========================
-# 📋 HISTÓRICO DE MEDIÇÕES (PADRÃO OFICIAL)
-# ==========================
-# ==========================
 # 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
 # ==========================
 st.markdown(
@@ -360,6 +357,10 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# ==========================
+# 📋 HISTÓRICO DE MEDIÇÕES (PADRÃO OFICIAL)
+# ==========================
 
 st.subheader("📋 Histórico de Medições")
 st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
