@@ -360,19 +360,20 @@ if cota and cota > 0:
         y="cota:Q"
     )
 
-    # 🏷️ texto da cota (AGORA COM X DEFINIDO)
-    texto_cota = alt.Chart(df_cota).mark_text(
-        align="right",
-        dx=-6,
-        dy=-6,
-        color="#DC3545",
-        fontSize=12,
-        fontWeight="bold"
-    ).encode(
-        x="x:T",
-        y="cota:Q",
-        text="label:N"
-    )
+# 🏷️ texto da cota
+texto_cota = alt.Chart(df_cota).mark_text(
+    align="right",
+    dx=-6,
+    dy=-6,
+    color="#DC3545",
+    fontSize=12,
+    fontWeight="bold"
+).encode(
+    x="x:T",
+    y="cota:Q",
+    text="label:N"
+)
+
 
     layers.extend([linha_cota, texto_cota])
 
