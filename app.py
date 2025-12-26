@@ -288,65 +288,62 @@ if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         st.session_state.confirmar_envio = True
     else:
         st.session_state.enviando = True
-        st.rerun()
+    st.rerun()
+# --------------------------
+# CONFIRMAÇÃO
+# --------------------------
+if st.session_state.confirmar_envio and not st.session_state.enviando:
+    st.warning(
+        f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
+        "Deseja salvar mesmo assim?"
+    )
 
+    col_conf, col_cancel = st.columns(2)
 
-    # --------------------------
-    # CONFIRMAÇÃO
-    # --------------------------
-    if st.session_state.confirmar_envio and not st.session_state.enviando:
-        st.warning(
-            f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
-            "Deseja salvar mesmo assim?"
-        )
-
-        col_conf, col_cancel = st.columns(2)
-
-        with col_conf:
-            if st.button("✅ Confirmar envio"):
-                st.session_state.enviando = True
-                st.session_state.confirmar_envio = False
-                st.rerun()
-
-        with col_cancel:
-            if st.button("❌ Cancelar"):
-                st.session_state.confirmar_envio = False
-                st.rerun()
-
-    # --------------------------
-    # ENVIO DOS DADOS
-    # --------------------------
-    if st.session_state.enviando:
-        with st.spinner("⏳ Salvando medições, aguarde..."):
-            ok = True
-
-            for r in registros + registros_vazios:
-                if r["nivel"] == "":
-                    continue
-
-                payload = {
-                    FORM_FIELDS["id_rio"]: r["id_rio"],
-                    FORM_FIELDS["id_municipio"]: r["id_municipio"],
-                    FORM_FIELDS["data"]: r["data"],
-                    FORM_FIELDS["hora"]: r["hora"],
-                    FORM_FIELDS["nivel"]: r["nivel"],
-                }
-
-                if not enviar_formulario(payload):
-                    ok = False
-
-            st.session_state.enviando = False
+    with col_conf:
+        if st.button("✅ Confirmar envio"):
+            st.session_state.enviando = True
             st.session_state.confirmar_envio = False
-
-            if ok:
-                st.success("✅ Medições enviadas com sucesso!")
-            else:
-                st.error("❌ Erro ao enviar algumas medições.")
-
             st.rerun()
 
+    with col_cancel:
+        if st.button("❌ Cancelar"):
+            st.session_state.confirmar_envio = False
+            st.rerun()
+# --------------------------
+# ENVIO DOS DADOS
+# --------------------------
+if st.session_state.enviando:
+    with st.spinner("⏳ Salvando medições, aguarde..."):
+        ok = True
 
-    st.divider()
+        for r in registros + registros_vazios:
+            if r["nivel"] == "":
+                continue
+
+            payload = {
+                FORM_FIELDS["id_rio"]: r["id_rio"],
+                FORM_FIELDS["id_municipio"]: r["id_municipio"],
+                FORM_FIELDS["data"]: r["data"],
+                FORM_FIELDS["hora"]: r["hora"],
+                FORM_FIELDS["nivel"]: r["nivel"],
+            }
+
+            if not enviar_formulario(payload):
+                ok = False
+
+        st.session_state.enviando = False
+        st.session_state.confirmar_envio = False
+
+        if ok:
+            st.success("✅ Medições enviadas com sucesso!")
+        else:
+            st.error("❌ Erro ao enviar algumas medições.")
+
+        st.rerun()
+st.divider()
+
+
 
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
