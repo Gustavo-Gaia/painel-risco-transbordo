@@ -100,46 +100,6 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
         })
 
     return pd.DataFrame(linhas)
-def buscar_hidroweb_cataguases():
-    try:
-        url = (
-            "https://www.snirh.gov.br/hidroweb/seriesHistoricas/"
-            "serieHistoricaCSV/58770000?tipoDados=1"
-        )
-
-        df = pd.read_csv(
-            url,
-            sep=";",
-            decimal=",",
-            encoding="latin1",
-            engine="python",        # 🔑 FUNDAMENTAL
-            on_bad_lines="skip"     # 🔑 IGNORA LINHAS QUEBRADAS
-        )
-
-        # normalizar nomes
-        df.columns = [c.strip() for c in df.columns]
-
-        if "Valor" not in df.columns:
-            return None, None, None
-
-        df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce")
-
-        df = df.dropna(subset=["Valor", "Data", "Hora"])
-
-        if df.empty:
-            return None, None, None
-
-        ultima = df.iloc[-1]
-
-        nivel = float(ultima["Valor"])
-        data_med = pd.to_datetime(ultima["Data"], dayfirst=True).date()
-        hora_med = pd.to_datetime(ultima["Hora"]).time()
-
-        return nivel, data_med, hora_med
-
-    except Exception as e:
-        st.error(f"Hidroweb CSV erro: {e}")
-        return None, None, None
 
 # ==========================
 # CARREGAMENTO DE DADOS
@@ -187,20 +147,16 @@ else:
 if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
 
-    # 🔧 BASE UNIFICADA
-    base = municipios.merge(rios, on="id_rio", how="left")
+    base = municipios.merge(rios, on="id_rio")
 
     # --------------------------
     # CONTROLES PADRÃO
     # --------------------------
     col1, col2, col3 = st.columns([2, 2, 1])
-
     with col1:
         data_padrao = st.date_input("Data padrão", value=None)
-
     with col2:
         hora_padrao = st.time_input("Hora padrão", value=None)
-
     with col3:
         if st.button("Replicar"):
             for i in range(len(base)):
@@ -216,53 +172,19 @@ if st.session_state.admin:
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
     for i, row in base.iterrows():
-
-        c1, c2, c3, c4, c5, c6 = st.columns([3, 3, 2, 2, 2, 2])
+        c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
         with c1:
             st.text(row["nome_rio"])
-
         with c2:
             st.text(row["nome_municipio"])
-
         with c3:
-            d = st.date_input(
-                "",
-                value=st.session_state.get(f"d{i}"),
-                key=f"d{i}"
-            )
-
+            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
         with c4:
-            h = st.time_input(
-                "",
-                value=st.session_state.get(f"h{i}"),
-                key=f"h{i}"
-            )
-
+            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
         with c5:
-            n = st.number_input(
-                "",
-                key=f"n{i}",
-                step=0.1,
-                min_value=0.0,
-                value=st.session_state.get(f"nivel_auto_{i}", 0.0)
-            )
+            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
 
-        # 🔄 BOTÃO ATUALIZAR — HIDROWEB (CATAGUASES)
-        with c6:
-            codigo = row.get("codigo_hidroweb")
-
-            if pd.notna(codigo) and int(codigo) == 58770000:
-                if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
-                    nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
-
-                    if nivel_h is not None:
-                        st.session_state[f"nivel_auto_{i}"] = nivel_h
-                        st.session_state[f"d{i}"] = data_h
-                        st.session_state[f"h{i}"] = hora_h
-                        st.rerun()
-                    else:
-                        st.error("Erro ao consultar Hidroweb.")
         registro = {
             "id_rio": row["id_rio"],
             "id_municipio": row["id_municipio"],
@@ -276,73 +198,73 @@ if st.session_state.admin:
         else:
             registros.append(registro)
 
-        st.divider()
+    st.divider()
 
-
-# --------------------------
-# BOTÃO SALVAR (UMA ÚNICA VEZ)
-# --------------------------
-if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
-    if registros_vazios and not st.session_state.confirmar_envio:
-        st.session_state.confirmar_envio = True
-    else:
-        st.session_state.enviando = True
-    st.rerun()
-# --------------------------
-# CONFIRMAÇÃO
-# --------------------------
-if st.session_state.confirmar_envio and not st.session_state.enviando:
-    st.warning(
-        f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
-        "Deseja salvar mesmo assim?"
-    )
-
-    col_conf, col_cancel = st.columns(2)
-
-    with col_conf:
-        if st.button("✅ Confirmar envio"):
-            st.session_state.enviando = True
-            st.session_state.confirmar_envio = False
-            st.rerun()
-
-    with col_cancel:
-        if st.button("❌ Cancelar"):
-            st.session_state.confirmar_envio = False
-            st.rerun()
-# --------------------------
-# ENVIO DOS DADOS
-# --------------------------
-if st.session_state.enviando:
-    with st.spinner("⏳ Salvando medições, aguarde..."):
-        ok = True
-
-        for r in registros + registros_vazios:
-            if r["nivel"] == "":
-                continue
-
-            payload = {
-                FORM_FIELDS["id_rio"]: r["id_rio"],
-                FORM_FIELDS["id_municipio"]: r["id_municipio"],
-                FORM_FIELDS["data"]: r["data"],
-                FORM_FIELDS["hora"]: r["hora"],
-                FORM_FIELDS["nivel"]: r["nivel"],
-            }
-
-            if not enviar_formulario(payload):
-                ok = False
-
-        st.session_state.enviando = False
-        st.session_state.confirmar_envio = False
-
-        if ok:
-            st.success("✅ Medições enviadas com sucesso!")
+    # --------------------------
+    # BOTÃO SALVAR
+    # --------------------------
+    if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
+        if registros_vazios and not st.session_state.confirmar_envio:
+            st.session_state.confirmar_envio = True
         else:
-            st.error("❌ Erro ao enviar algumas medições.")
+            st.session_state.enviando = True
+            st.rerun()
 
-        st.rerun()
-st.divider()
+    # --------------------------
+    # CONFIRMAÇÃO DE MEDIÇÕES VAZIAS
+    # --------------------------
+    if st.session_state.confirmar_envio and not st.session_state.enviando:
+        st.warning(
+            f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
+            "Deseja salvar mesmo assim?"
+        )
 
+        col_conf, col_cancel = st.columns(2)
 
+        with col_conf:
+            if st.button("✅ Confirmar envio"):
+                st.session_state.enviando = True
+                st.session_state.confirmar_envio = False
+                st.rerun()
+
+        with col_cancel:
+            if st.button("❌ Cancelar"):
+                st.session_state.confirmar_envio = False
+                st.rerun()
+
+    # --------------------------
+    # ENVIO DOS DADOS
+    # --------------------------
+    if st.session_state.enviando:
+        with st.spinner("⏳ Salvando medições, aguarde..."):
+            ok = True
+
+            for r in registros + registros_vazios:
+                if r["nivel"] == "":
+                    continue
+
+                payload = {
+                    FORM_FIELDS["id_rio"]: r["id_rio"],
+                    FORM_FIELDS["id_municipio"]: r["id_municipio"],
+                    FORM_FIELDS["data"]: r["data"],
+                    FORM_FIELDS["hora"]: r["hora"],
+                    FORM_FIELDS["nivel"]: r["nivel"],
+                }
+
+                if not enviar_formulario(payload):
+                    ok = False
+
+            st.session_state.enviando = False
+            st.session_state.confirmar_envio = False
+
+            if ok:
+                st.success("✅ Medições enviadas com sucesso!")
+            else:
+                st.error("❌ Erro ao enviar algumas medições.")
+
+            st.rerun()
+
+    st.divider()
 
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
