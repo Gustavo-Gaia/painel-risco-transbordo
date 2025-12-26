@@ -249,36 +249,36 @@ if st.session_state.admin:
                 value=st.session_state.get(f"nivel_auto_{i}", 0.0)
             )
 
-# 🔄 BOTÃO ATUALIZAR — HIDROWEB (CATAGUASES)
-with c6:
-    codigo = row.get("codigo_hidroweb")
+        # 🔄 BOTÃO ATUALIZAR — HIDROWEB (CATAGUASES)
+        with c6:
+            codigo = row.get("codigo_hidroweb")
 
-    if pd.notna(codigo) and int(codigo) == 58770000:
-        if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
-            nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
+            if pd.notna(codigo) and int(codigo) == 58770000:
+                if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
+                    nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
 
-            if nivel_h is not None:
-                st.session_state[f"nivel_auto_{i}"] = nivel_h
-                st.session_state[f"d{i}"] = data_h
-                st.session_state[f"h{i}"] = hora_h
-                st.rerun()
-            else:
-                st.error("Erro ao consultar Hidroweb.")
+                    if nivel_h is not None:
+                        st.session_state[f"nivel_auto_{i}"] = nivel_h
+                        st.session_state[f"d{i}"] = data_h
+                        st.session_state[f"h{i}"] = hora_h
+                        st.rerun()
+                    else:
+                        st.error("Erro ao consultar Hidroweb.")
+        registro = {
+            "id_rio": row["id_rio"],
+            "id_municipio": row["id_municipio"],
+            "data": d.strftime("%Y-%m-%d") if d else "",
+            "hora": h.strftime("%H:%M") if h else "",
+            "nivel": n if n > 0 else ""
+        }
 
-registro = {
-    "id_rio": row["id_rio"],
-    "id_municipio": row["id_municipio"],
-    "data": d.strftime("%Y-%m-%d") if d else "",
-    "hora": h.strftime("%H:%M") if h else "",
-    "nivel": n if n > 0 else ""
-}
+        if n <= 0:
+            registros_vazios.append(registro)
+        else:
+            registros.append(registro)
 
-if n <= 0:
-    registros_vazios.append(registro)
-else:
-    registros.append(registro)
+        st.divider()
 
-st.divider()
 
 # --------------------------
 # BOTÃO SALVAR (UMA ÚNICA VEZ)
