@@ -111,17 +111,28 @@ def buscar_hidroweb_cataguases():
             url,
             sep=";",
             decimal=",",
-            encoding="latin1"
+            encoding="latin1",
+            engine="python",        # 🔑 FUNDAMENTAL
+            on_bad_lines="skip"     # 🔑 IGNORA LINHAS QUEBRADAS
         )
+
+        # normalizar nomes
+        df.columns = [c.strip() for c in df.columns]
+
+        if "Valor" not in df.columns:
+            return None, None, None
+
+        df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce")
+
+        df = df.dropna(subset=["Valor", "Data", "Hora"])
 
         if df.empty:
             return None, None, None
 
-        # última leitura válida
-        ultima = df.dropna(subset=["Valor"]).iloc[-1]
+        ultima = df.iloc[-1]
 
         nivel = float(ultima["Valor"])
-        data_med = pd.to_datetime(ultima["Data"]).date()
+        data_med = pd.to_datetime(ultima["Data"], dayfirst=True).date()
         hora_med = pd.to_datetime(ultima["Hora"]).time()
 
         return nivel, data_med, hora_med
