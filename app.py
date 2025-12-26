@@ -36,6 +36,7 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
+
 def calcular_situacao(nivel, cota):
     try:
         nivel = float(str(nivel).replace(",", "."))
@@ -61,9 +62,11 @@ def calcular_situacao(nivel, cota):
     else:
         return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
 
+
 def enviar_formulario(payload):
     r = requests.post(FORM_URL, data=payload)
     return r.status_code == 200
+
 
 def gerar_relatorio_usuario(rios, municipios, leituras):
     base = municipios.merge(rios, on="id_rio")
@@ -100,6 +103,62 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
         })
 
     return pd.DataFrame(linhas)
+
+
+# =====================================================
+# 🔄 FUNÇÕES DE BUSCA AUTOMÁTICA – HIDROWEB (NOVO)
+# =====================================================
+def hidroweb_ultimo_nivel(codigo_estacao):
+    """
+    Busca o último nível (cota) da estação Hidroweb
+    Retorna: nivel (float), data (YYYY-MM-DD), hora (HH:MM)
+    """
+    if not codigo_estacao or pd.isna(codigo_estacao):
+        return None, None, None
+
+    url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
+
+    params = {
+        "codigoEstacao": str(codigo_estacao),
+        "tipoDados": 1,  # 1 = cota (nível)
+        "size": 1,
+        "page": 0,
+        "ordenacao": "DESC"
+    }
+
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+
+        data = r.json()
+        if "content" not in data or not data["content"]:
+            return None, None, None
+
+        ultimo = data["content"][0]
+
+        nivel = ultimo.get("valor")
+        data_med = ultimo.get("data")
+        hora_med = ultimo.get("hora")
+
+        if nivel is None:
+            return None, None, None
+
+        return float(nivel), data_med, hora_med
+
+    except Exception:
+        return None, None, None
+
+
+def buscar_nivel_automatico_municipio(row_municipio):
+    """
+    Decide de qual fonte buscar o nível automaticamente (por município)
+    """
+    fonte = str(row_municipio.get("fonte_automatica", "")).lower()
+
+    if fonte == "hidroweb":
+        return hidroweb_ultimo_nivel(row_municipio.get("codigo_hidroweb"))
+
+    return None, None, None
 
 # ==========================
 # CARREGAMENTO DE DADOS
