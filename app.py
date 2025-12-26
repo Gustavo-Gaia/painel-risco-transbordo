@@ -238,23 +238,53 @@ if st.session_state.admin:
 
     registros = []
     registros_vazios = []
-
     # --------------------------
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
     for i, row in base.iterrows():
+
+        # 🔄 Busca automática (por município)
+        nivel_auto, data_auto, hora_auto = buscar_nivel_automatico_municipio(row)
+
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
         with c1:
             st.text(row["nome_rio"])
+
         with c2:
             st.text(row["nome_municipio"])
+
         with c3:
-            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
+            d = st.date_input(
+                "",
+                value=(
+                    pd.to_datetime(data_auto).date()
+                    if data_auto else st.session_state.get(f"d{i}")
+                ),
+                key=f"d{i}"
+            )
+
         with c4:
-            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
+            h = st.time_input(
+                "",
+                value=(
+                    pd.to_datetime(hora_auto).time()
+                    if hora_auto else st.session_state.get(f"h{i}")
+                ),
+                key=f"h{i}"
+            )
+
         with c5:
-            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
+            n = st.number_input(
+                "",
+                key=f"n{i}",
+                step=0.1,
+                min_value=0.0,
+                value=float(nivel_auto) if nivel_auto else 0.0
+            )
+
+            if nivel_auto:
+                st.caption("🔄 Leitura automática – Hidroweb")
 
         registro = {
             "id_rio": row["id_rio"],
