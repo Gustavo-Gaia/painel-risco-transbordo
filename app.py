@@ -315,34 +315,40 @@ if not st.session_state.admin:
         if perc is not None and not math.isnan(perc):
             st.markdown(f"**Percentual da cota:** {perc:.1f}%")
 
-        # ==========================
-        # 📊 GRÁFICO COM LINHA DE TRANBORDO
-        # ==========================
-        st.subheader("📊 Evolução do Nível do Rio")
+# ==========================
+# 📊 GRÁFICO COM LINHA DE TRANSBORDO
+# ==========================
+st.subheader("📊 Evolução do Nível do Rio")
 
-        filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
-        filtro = filtro.sort_values("data_hora")
+filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
+filtro = filtro.sort_values("data_hora")
 
-        grafico_nivel = alt.Chart(filtro).mark_line(
-            color="#0B5ED7",
-            strokeWidth=3
-        ).encode(
-            x=alt.X("data_hora:T", title="Data / Hora"),
-            y=alt.Y("nivel:Q", title="Nível do Rio")
-        )
+grafico_nivel = alt.Chart(filtro).mark_line(
+    color="#0B5ED7",
+    strokeWidth=3
+).encode(
+    x=alt.X("data_hora:T", title="Data / Hora"),
+    y=alt.Y("nivel:Q", title="Nível do Rio")
+)
 
-        layers = [grafico_nivel]
+layers = [grafico_nivel]
 
-        try:
-            cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
-            if pd.isna(cota):
-                cota = None
-        except:
-            cota = None
+# 🔧 cota de transbordo
+try:
+    cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
+    if pd.isna(cota):
+        cota = None
+except:
+    cota = None
+
 if cota and cota > 0:
+    # usar a última data do gráfico para posicionar o texto
+    x_texto = filtro["data_hora"].max()
+
     df_cota = pd.DataFrame({
         "cota": [cota],
-        "label": [f"Cota: {cota:.2f} m"]
+        "label": [f"Cota: {cota:.2f} m"],
+        "x": [x_texto]
     })
 
     # 🔴 linha da cota
@@ -354,24 +360,27 @@ if cota and cota > 0:
         y="cota:Q"
     )
 
-    # 🏷️ texto da cota
+    # 🏷️ texto da cota (AGORA COM X DEFINIDO)
     texto_cota = alt.Chart(df_cota).mark_text(
-        align="left",
-        dx=6,
+        align="right",
+        dx=-6,
         dy=-6,
         color="#DC3545",
         fontSize=12,
         fontWeight="bold"
     ).encode(
+        x="x:T",
         y="cota:Q",
         text="label:N"
     )
 
     layers.extend([linha_cota, texto_cota])
-        st.altair_chart(
-            alt.layer(*layers).resolve_scale(y="shared"),
-            use_container_width=True
-        )
+
+# ✅ renderização correta
+st.altair_chart(
+    alt.layer(*layers).resolve_scale(y="shared"),
+    use_container_width=True
+)
 
         # ==========================
         # 📋 HISTÓRICO DE MEDIÇÕES
