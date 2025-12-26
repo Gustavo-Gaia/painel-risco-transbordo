@@ -108,7 +108,7 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
 # =====================================================
 # 🔄 FUNÇÕES DE BUSCA AUTOMÁTICA – HIDROWEB (AJUSTADO)
 # =====================================================
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=900)
 def hidroweb_ultimo_nivel(codigo_estacao):
     """
     Busca o último nível (cota) da estação Hidroweb
@@ -117,36 +117,36 @@ def hidroweb_ultimo_nivel(codigo_estacao):
     if not codigo_estacao or pd.isna(codigo_estacao):
         return None, None, None
 
+    url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
+
+    params = {
+        "codigoEstacao": str(int(codigo_estacao)),
+        "tipoDados": 1,      # 1 = Cota (nível)
+        "size": 1,
+        "page": 0,
+        "ordenacao": "DESC"
+    }
+
     try:
-        url = "https://www.snirh.gov.br/hidroweb/rest/api/documento/serieHistorica"
-
-        params = {
-            "codigoEstacao": int(codigo_estacao),
-            "tipoDados": 1,  # cota
-            "size": 1,
-            "page": 0
-        }
-
-        r = requests.get(url, params=params, timeout=6)
+        r = requests.get(url, params=params, timeout=10)
         r.raise_for_status()
 
         data = r.json()
-        serie = data.get("content", [])
+        conteudo = data.get("content", [])
 
-        if not serie:
+        if not conteudo:
             return None, None, None
 
-        leitura = serie[0]
+        ultimo = conteudo[0]
 
-        nivel = leitura.get("valor")
-        datahora = leitura.get("dataHora")
+        nivel = ultimo.get("valor")
+        data_med = ultimo.get("data")
+        hora_med = ultimo.get("hora")
 
-        if nivel is None or not datahora:
+        if nivel is None:
             return None, None, None
 
-        dt = pd.to_datetime(datahora)
-
-        return float(nivel), dt.date(), dt.time()
+        return float(nivel), pd.to_datetime(data_med).date(), pd.to_datetime(hora_med).time()
 
     except Exception:
         return None, None, None
