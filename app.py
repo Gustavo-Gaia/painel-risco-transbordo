@@ -228,10 +228,13 @@ if st.session_state.admin:
     # CONTROLES PADRÃO
     # --------------------------
     col1, col2, col3 = st.columns([2, 2, 1])
+
     with col1:
-        data_padrao = st.date_input("Data padrão", value=None)
+        data_padrao = st.date_input("Data padrão")
+
     with col2:
-        hora_padrao = st.time_input("Hora padrão", value=None)
+        hora_padrao = st.time_input("Hora padrão")
+
     with col3:
         if st.button("Replicar"):
             for i in range(len(base)):
@@ -242,17 +245,20 @@ if st.session_state.admin:
 
     registros = []
     registros_vazios = []
+
     # --------------------------
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
     for i, row in base.iterrows():
 
-        # 🔄 Busca automática (por município)
+        # 🔄 Busca automática (Hidroweb)
         nivel_auto = data_auto = hora_auto = None
 
-if row.get("fonte_automatica") == "hidroweb" and row.get("codigo_hidroweb"):
-    nivel_auto, data_auto, hora_auto = buscar_nivel_automatico_municipio(row)
-
+        if (
+            str(row.get("fonte_automatica", "")).lower() == "hidroweb"
+            and row.get("codigo_hidroweb")
+        ):
+            nivel_auto, data_auto, hora_auto = buscar_nivel_automatico_municipio(row)
 
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
@@ -265,20 +271,14 @@ if row.get("fonte_automatica") == "hidroweb" and row.get("codigo_hidroweb"):
         with c3:
             d = st.date_input(
                 "",
-                value=(
-                    pd.to_datetime(data_auto).date()
-                    if data_auto else st.session_state.get(f"d{i}")
-                ),
+                value=data_auto if data_auto else st.session_state.get(f"d{i}", data_padrao),
                 key=f"d{i}"
             )
 
         with c4:
             h = st.time_input(
                 "",
-                value=(
-                    pd.to_datetime(hora_auto).time()
-                    if hora_auto else st.session_state.get(f"h{i}")
-                ),
+                value=hora_auto if hora_auto else st.session_state.get(f"h{i}", hora_padrao),
                 key=f"h{i}"
             )
 
