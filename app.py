@@ -561,97 +561,68 @@ if not st.session_state.admin:
 # 📄 RELATÓRIO GERAL (ÁREA DO USUÁRIO)
 # ==========================
 if not st.session_state.admin:
-    st.subheader("📄 Relatório Geral de Monitoramento")
+    # Cria duas colunas: uma para o título e outra para o botão
+    col_title, col_button = st.columns([4, 1])
+    
+    with col_title:
+        st.subheader("📄 Relatório Geral de Monitoramento")
+    
+    with col_button:
+        # botão de exportação
+        if st.button("📄 Exportar PDF"):
+            caminho_pdf = gerar_relatorio_pdf(rel)
+            with open(caminho_pdf, "rb") as f:
+                st.download_button(
+                    label="⬇️ Baixar PDF",
+                    data=f,
+                    file_name="monitoramento_rios_redec10_11.pdf",
+                    mime="application/pdf"
+                )
 
-    # Gera relatório para todas as estações/municípios
+    # Gera e exibe a tabela normalmente
     rel = gerar_relatorio_usuario(rios, municipios, leituras)
-
-    # Se não houver dados, cria um DataFrame vazio com as colunas corretas
+    
     if rel.empty:
-        rel = pd.DataFrame(columns=[
-            "Rio", "Município", "Cota de Transbordo",
-            "Penúltima Medição", "Última Medição", "Datas", "Fonte", "cor"
-        ])
-        rel["cor"] = "gray"
-
-    rel_exibicao = rel.drop(columns=["cor"])
-
-    # 🔧 OCULTAR REPETIÇÃO DO NOME DO RIO
-    rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
-        rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
-    )
-
-    # 🔧 REMOVER 'nan' VISUAL
-    rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
-    rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
-    rel_exibicao["Penúltima Medição"] = rel_exibicao["Penúltima Medição"].fillna("-")
-    rel_exibicao["Última Medição"] = rel_exibicao["Última Medição"].fillna("-")
-    rel_exibicao["Datas"] = rel_exibicao["Datas"].fillna("-")
-    rel_exibicao["Fonte"] = rel_exibicao["Fonte"].fillna("-")
-
-    def cor_linha_fix(row):
-        cor = rel.loc[row.name, "cor"]
-        cores = {
-            "green": "#d4edda",
-            "orange": "#fff3cd",
-            "red": "#f8d7da",
-            "purple": "#e2d6f3",
-            "gray": "#e9ecef"
-        }
-        return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
-
-    styled = (
-        rel_exibicao.style
-        .apply(cor_linha_fix, axis=1)
-        .set_properties(**{
-            "text-align": "center",
-            "font-size": "13px",
-            "border": "1px solid #ccc",
-            "padding": "6px"
-        })
-        .set_properties(subset=["Rio", "Município"], **{
-            "text-align": "left",
-            "font-weight": "600"
-        })
-        .set_table_styles([
-            {
-                "selector": "th",
-                "props": [
-                    ("background-color", "#0B5ED7"),
-                    ("color", "white"),
-                    ("font-size", "14px"),
-                    ("text-align", "center"),
-                    ("padding", "8px")
-                ]
+        st.info("ℹ️ Não há dados suficientes para gerar o relatório.")
+    else:
+        rel_exibicao = rel.drop(columns=["cor"])
+        rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
+            rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
+        )
+        rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
+        rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
+        
+        def cor_linha_fix(row):
+            cor = rel.loc[row.name, "cor"]
+            cores = {
+                "green": "#d4edda",
+                "orange": "#fff3cd",
+                "red": "#f8d7da",
+                "purple": "#e2d6f3",
+                "gray": "#e9ecef"
             }
-        ])
-    )
+            return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
 
-    st.components.v1.html(
-        styled.to_html(),
-        height=420,
-        scrolling=True
-    )
+        styled = (
+            rel_exibicao.style
+            .apply(cor_linha_fix, axis=1)
+            .set_properties(**{
+                "text-align": "center",
+                "font-size": "13px",
+                "border": "1px solid #ccc",
+                "padding": "6px"
+            })
+            .set_properties(subset=["Rio", "Município"], **{
+                "text-align": "left",
+                "font-weight": "600"
+            })
+        )
 
-    st.divider()
-    st.subheader("📄 Exportação do Relatório")
-
-    # Botão sempre aparece, desabilitado apenas se rel estiver totalmente vazio
-    download_disabled = rel.empty or len(rel) == 0
-
-    if download_disabled:
-        st.info("ℹ️ Não há dados suficientes para gerar o relatório em PDF.")
-
-    if st.button("📄 Exportar Relatório Geral em PDF", disabled=download_disabled):
-        caminho_pdf = gerar_relatorio_pdf(rel)
-
-        with open(caminho_pdf, "rb") as f:
-            st.download_button(
-                label="⬇️ Baixar PDF",
-                data=f,
-                file_name="monitoramento_rios_redec10_11.pdf",
-                mime="application/pdf"
-            )
+        st.components.v1.html(
+            styled.to_html(),
+            height=420,
+            scrolling=True
+        )
 
 # ==========================
 # RODAPÉ (RESTAURADO)
