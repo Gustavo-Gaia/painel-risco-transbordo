@@ -108,8 +108,20 @@ rios = carregar_aba(ABA_RIOS)
 municipios = carregar_aba(ABA_MUNICIPIOS)
 leituras = carregar_aba(ABA_LEITURAS)
 
+# 🔧 Padronizar nomes das colunas (remove espaços extras)
+rios.columns = [c.strip() for c in rios.columns]
+municipios.columns = [c.strip() for c in municipios.columns]
 leituras.columns = [c.strip() for c in leituras.columns]
+
+# 🔧 Garantir tipos numéricos
 leituras["nivel"] = pd.to_numeric(leituras["nivel"], errors="coerce")
+
+# 🔧 Campos opcionais para automação (evita KeyError)
+if "codigo_hidroweb" not in municipios.columns:
+    municipios["codigo_hidroweb"] = None
+
+if "fonte_automatica" not in municipios.columns:
+    municipios["fonte_automatica"] = None
 
 # ==========================
 # ESTADOS
