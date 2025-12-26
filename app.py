@@ -101,55 +101,34 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
 
     return pd.DataFrame(linhas)
 def buscar_hidroweb_cataguases():
-    url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
-
-    params = {
-        "codigoEstacao": 58770000,
-        "tipoDados": 1,
-        "size": 1,
-        "page": 0,
-        "ordenacao": "DESC"
-    }
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
-    }
-
     try:
-        r = requests.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=10
+        url = (
+            "https://www.snirh.gov.br/hidroweb/seriesHistoricas/"
+            "serieHistoricaCSV/58770000?tipoDados=1"
         )
 
-        r.raise_for_status()
+        df = pd.read_csv(
+            url,
+            sep=";",
+            decimal=",",
+            encoding="latin1"
+        )
 
-        data = r.json()
-        conteudo = data.get("content", [])
-
-        if not conteudo:
+        if df.empty:
             return None, None, None
 
-        leitura = conteudo[0]
+        # última leitura válida
+        ultima = df.dropna(subset=["Valor"]).iloc[-1]
 
-        nivel = leitura.get("valor")
-        data_str = leitura.get("data")
-        hora_str = leitura.get("hora")
+        nivel = float(ultima["Valor"])
+        data_med = pd.to_datetime(ultima["Data"]).date()
+        hora_med = pd.to_datetime(ultima["Hora"]).time()
 
-        if nivel is None or not data_str or not hora_str:
-            return None, None, None
-
-        data_med = pd.to_datetime(data_str).date()
-        hora_med = pd.to_datetime(hora_str).time()
-
-        return float(nivel), data_med, hora_med
+        return nivel, data_med, hora_med
 
     except Exception as e:
-        st.error(f"Erro Hidroweb: {e}")
+        st.error(f"Hidroweb CSV erro: {e}")
         return None, None, None
-
 
 # ==========================
 # CARREGAMENTO DE DADOS
