@@ -619,17 +619,22 @@ if not st.session_state.admin:
             height=420,
             scrolling=True
         )
-    if not rel.empty:
-        if st.button("📄 Exportar Relatório Geral em PDF"):
-            caminho_pdf = gerar_relatorio_pdf(rel)
+    st.divider()
+st.subheader("📄 Exportação do Relatório")
 
-            with open(caminho_pdf, "rb") as f:
-                st.download_button(
-                    label="⬇️ Baixar PDF",
-                    data=f,
-                    file_name="monitoramento_rios_redec10_11.pdf",
-                    mime="application/pdf"
-                )
+if rel.empty:
+    st.info("ℹ️ Não há dados suficientes para gerar o relatório em PDF.")
+else:
+    if st.button("📄 Exportar Relatório Geral em PDF"):
+        caminho_pdf = gerar_relatorio_pdf(rel)
+
+        with open(caminho_pdf, "rb") as f:
+            st.download_button(
+                label="⬇️ Baixar PDF",
+                data=f,
+                file_name="monitoramento_rios_redec10_11.pdf",
+                mime="application/pdf"
+            )
 
 # ==========================
 # RODAPÉ (RESTAURADO)
