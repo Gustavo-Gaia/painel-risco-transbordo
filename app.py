@@ -101,22 +101,29 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
 
     return pd.DataFrame(linhas)
 def buscar_hidroweb_cataguases():
-    """
-    Busca a última leitura de nível da estação Hidroweb 58770000 (Cataguases)
-    Retorna: nivel (float), data (date), hora (time)
-    """
     url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
 
     params = {
         "codigoEstacao": 58770000,
-        "tipoDados": 1,  # cota / nível
+        "tipoDados": 1,
         "size": 1,
         "page": 0,
         "ordenacao": "DESC"
     }
 
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+    }
+
     try:
-        r = requests.get(url, params=params, timeout=6)
+        r = requests.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=10
+        )
+
         r.raise_for_status()
 
         data = r.json()
@@ -139,8 +146,10 @@ def buscar_hidroweb_cataguases():
 
         return float(nivel), data_med, hora_med
 
-    except Exception:
+    except Exception as e:
+        st.error(f"Erro Hidroweb: {e}")
         return None, None, None
+
 
 # ==========================
 # CARREGAMENTO DE DADOS
