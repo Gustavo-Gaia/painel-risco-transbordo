@@ -232,8 +232,8 @@ if st.session_state.admin:
         value=st.session_state.get(f"nivel_auto_{i}", 0.0)
     )
 
-    # 🔄 BOTÃO HIDROWEB — SOMENTE CATAGUASES
-    if row["nome_municipio"] == "Cataguases":
+    # 🔄 BOTÃO HIDROWEB — CATAGUASES (58770000)
+    if str(row.get("codigo_hidroweb")) == "58770000":
         if st.button("🔄 Atualizar (Hidroweb)", key=f"btn_hidro_{i}"):
             nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
 
@@ -245,6 +245,7 @@ if st.session_state.admin:
                 st.rerun()
             else:
                 st.error("Não foi possível obter dados do Hidroweb.")
+
 
 
         registro = {
