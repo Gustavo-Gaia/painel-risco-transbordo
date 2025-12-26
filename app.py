@@ -381,7 +381,7 @@ for i, row in base.iterrows():
 
             st.rerun()
 
-    st.divider()
+  
 
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
