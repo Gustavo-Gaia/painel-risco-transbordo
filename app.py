@@ -342,13 +342,9 @@ except:
     cota = None
 
 if cota and cota > 0:
-    # usar a última data do gráfico para posicionar o texto
-    x_texto = filtro["data_hora"].max()
-
     df_cota = pd.DataFrame({
         "cota": [cota],
-        "label": [f"Cota: {cota:.2f} m"],
-        "x": [x_texto]
+        "label": [f"Cota: {cota:.2f} m"]
     })
 
     # 🔴 linha da cota
@@ -360,20 +356,19 @@ if cota and cota > 0:
         y="cota:Q"
     )
 
-# 🏷️ texto da cota
-texto_cota = alt.Chart(df_cota).mark_text(
-    align="right",
-    dx=-6,
-    dy=-6,
-    color="#DC3545",
-    fontSize=12,
-    fontWeight="bold"
-).encode(
-    x="x:T",
-    y="cota:Q",
-    text="label:N"
-)
-
+    # 🏷️ texto da cota — FIXO NO INÍCIO DO GRÁFICO
+    texto_cota = alt.Chart(df_cota).mark_text(
+        align="left",
+        dx=6,
+        dy=-6,
+        color="#DC3545",
+        fontSize=12,
+        fontWeight="bold"
+    ).encode(
+        x=alt.value(0),   # ⬅ início do eixo X
+        y="cota:Q",
+        text="label:N"
+    )
 
     layers.extend([linha_cota, texto_cota])
 
