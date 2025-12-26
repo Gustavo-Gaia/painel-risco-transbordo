@@ -563,69 +563,86 @@ if not st.session_state.admin:
 if not st.session_state.admin:
     st.subheader("📄 Relatório Geral de Monitoramento")
 
+    # Gera relatório para todas as estações/municípios
     rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
-    if not rel.empty:
-        rel_exibicao = rel.drop(columns=["cor"])
+    # Se não houver dados, cria um DataFrame vazio com as colunas corretas
+    if rel.empty:
+        rel = pd.DataFrame(columns=[
+            "Rio", "Município", "Cota de Transbordo",
+            "Penúltima Medição", "Última Medição", "Datas", "Fonte", "cor"
+        ])
+        rel["cor"] = "gray"
 
-        # 🔧 OCULTAR REPETIÇÃO DO NOME DO RIO
-        rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
-            rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
-        )
+    rel_exibicao = rel.drop(columns=["cor"])
 
-        # 🔧 REMOVER 'nan' VISUAL
-        rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
-        rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
+    # 🔧 OCULTAR REPETIÇÃO DO NOME DO RIO
+    rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
+        rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
+    )
 
-        def cor_linha_fix(row):
-            cor = rel.loc[row.name, "cor"]
-            cores = {
-                "green": "#d4edda",
-                "orange": "#fff3cd",
-                "red": "#f8d7da",
-                "purple": "#e2d6f3"
+    # 🔧 REMOVER 'nan' VISUAL
+    rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
+    rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
+    rel_exibicao["Penúltima Medição"] = rel_exibicao["Penúltima Medição"].fillna("-")
+    rel_exibicao["Última Medição"] = rel_exibicao["Última Medição"].fillna("-")
+    rel_exibicao["Datas"] = rel_exibicao["Datas"].fillna("-")
+    rel_exibicao["Fonte"] = rel_exibicao["Fonte"].fillna("-")
+
+    def cor_linha_fix(row):
+        cor = rel.loc[row.name, "cor"]
+        cores = {
+            "green": "#d4edda",
+            "orange": "#fff3cd",
+            "red": "#f8d7da",
+            "purple": "#e2d6f3",
+            "gray": "#e9ecef"
+        }
+        return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
+
+    styled = (
+        rel_exibicao.style
+        .apply(cor_linha_fix, axis=1)
+        .set_properties(**{
+            "text-align": "center",
+            "font-size": "13px",
+            "border": "1px solid #ccc",
+            "padding": "6px"
+        })
+        .set_properties(subset=["Rio", "Município"], **{
+            "text-align": "left",
+            "font-weight": "600"
+        })
+        .set_table_styles([
+            {
+                "selector": "th",
+                "props": [
+                    ("background-color", "#0B5ED7"),
+                    ("color", "white"),
+                    ("font-size", "14px"),
+                    ("text-align", "center"),
+                    ("padding", "8px")
+                ]
             }
-            return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
+        ])
+    )
 
-        styled = (
-            rel_exibicao.style
-            .apply(cor_linha_fix, axis=1)
-            .set_properties(**{
-                "text-align": "center",
-                "font-size": "13px",
-                "border": "1px solid #ccc",
-                "padding": "6px"
-            })
-            .set_properties(subset=["Rio", "Município"], **{
-                "text-align": "left",
-                "font-weight": "600"
-            })
-            .set_table_styles([
-                {
-                    "selector": "th",
-                    "props": [
-                        ("background-color", "#0B5ED7"),
-                        ("color", "white"),
-                        ("font-size", "14px"),
-                        ("text-align", "center"),
-                        ("padding", "8px")
-                    ]
-                }
-            ])
-        )
+    st.components.v1.html(
+        styled.to_html(),
+        height=420,
+        scrolling=True
+    )
 
-        st.components.v1.html(
-            styled.to_html(),
-            height=420,
-            scrolling=True
-        )
     st.divider()
-st.subheader("📄 Exportação do Relatório")
+    st.subheader("📄 Exportação do Relatório")
 
-if rel.empty:
-    st.info("ℹ️ Não há dados suficientes para gerar o relatório em PDF.")
-else:
-    if st.button("📄 Exportar Relatório Geral em PDF"):
+    # Botão sempre aparece, desabilitado apenas se rel estiver totalmente vazio
+    download_disabled = rel.empty or len(rel) == 0
+
+    if download_disabled:
+        st.info("ℹ️ Não há dados suficientes para gerar o relatório em PDF.")
+
+    if st.button("📄 Exportar Relatório Geral em PDF", disabled=download_disabled):
         caminho_pdf = gerar_relatorio_pdf(rel)
 
         with open(caminho_pdf, "rb") as f:
