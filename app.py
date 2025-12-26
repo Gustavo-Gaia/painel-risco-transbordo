@@ -36,7 +36,6 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
-
 def calcular_situacao(nivel, cota):
     try:
         nivel = float(str(nivel).replace(",", "."))
@@ -62,11 +61,9 @@ def calcular_situacao(nivel, cota):
     else:
         return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
 
-
 def enviar_formulario(payload):
     r = requests.post(FORM_URL, data=payload)
     return r.status_code == 200
-
 
 def gerar_relatorio_usuario(rios, municipios, leituras):
     base = municipios.merge(rios, on="id_rio")
@@ -104,67 +101,6 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
 
     return pd.DataFrame(linhas)
 
-
-# =====================================================
-# 🔄 FUNÇÕES DE BUSCA AUTOMÁTICA – HIDROWEB (AJUSTADO)
-# =====================================================
-@st.cache_data(ttl=900)
-def hidroweb_ultimo_nivel(codigo_estacao):
-    if codigo_estacao is None or pd.isna(codigo_estacao):
-        return None, None, None
-
-    try:
-        codigo = str(codigo_estacao).split(".")[0].strip()
-        if not codigo.isdigit():
-            return None, None, None
-
-        url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
-
-        params = {
-            "codigoEstacao": codigo,
-            "tipoDados": 1,
-            "size": 1,
-            "page": 0,
-            "ordenacao": "DESC"
-        }
-
-        r = requests.get(url, params=params, timeout=10)
-        r.raise_for_status()
-
-        data = r.json()
-        content = data.get("content", [])
-
-        if not content:
-            return None, None, None
-
-        ultimo = content[0]
-
-        nivel = ultimo.get("valor")
-        data_med = ultimo.get("data")
-        hora_med = ultimo.get("hora")
-
-        if nivel is None:
-            return None, None, None
-
-        return (
-            float(nivel),
-            pd.to_datetime(data_med).date(),
-            pd.to_datetime(hora_med).time()
-        )
-
-    except Exception:
-        return None, None, None
-
-
-def buscar_nivel_automatico_municipio(row):
-    fonte = str(row.get("fonte_automatica", "")).strip().lower()
-    codigo = row.get("codigo_hidroweb")
-
-    if fonte != "hidroweb":
-        return None, None, None
-
-    return hidroweb_ultimo_nivel(codigo)
-
 # ==========================
 # CARREGAMENTO DE DADOS
 # ==========================
@@ -172,20 +108,8 @@ rios = carregar_aba(ABA_RIOS)
 municipios = carregar_aba(ABA_MUNICIPIOS)
 leituras = carregar_aba(ABA_LEITURAS)
 
-# 🔧 Padronizar nomes das colunas (remove espaços extras)
-rios.columns = [c.strip() for c in rios.columns]
-municipios.columns = [c.strip() for c in municipios.columns]
 leituras.columns = [c.strip() for c in leituras.columns]
-
-# 🔧 Garantir tipos numéricos
 leituras["nivel"] = pd.to_numeric(leituras["nivel"], errors="coerce")
-
-# 🔧 Campos opcionais para automação (evita KeyError)
-if "codigo_hidroweb" not in municipios.columns:
-    municipios["codigo_hidroweb"] = None
-
-if "fonte_automatica" not in municipios.columns:
-    municipios["fonte_automatica"] = None
 
 # ==========================
 # ESTADOS
@@ -229,13 +153,10 @@ if st.session_state.admin:
     # CONTROLES PADRÃO
     # --------------------------
     col1, col2, col3 = st.columns([2, 2, 1])
-
     with col1:
-        data_padrao = st.date_input("Data padrão")
-
+        data_padrao = st.date_input("Data padrão", value=None)
     with col2:
-        hora_padrao = st.time_input("Hora padrão")
-
+        hora_padrao = st.time_input("Hora padrão", value=None)
     with col3:
         if st.button("Replicar"):
             for i in range(len(base)):
@@ -247,73 +168,35 @@ if st.session_state.admin:
     registros = []
     registros_vazios = []
 
-# --------------------------
-# FORMULÁRIO DE MEDIÇÕES
-# --------------------------
-for i, row in base.iterrows():
+    # --------------------------
+    # FORMULÁRIO DE MEDIÇÕES
+    # --------------------------
+    for i, row in base.iterrows():
+        c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
-    # 🔄 Busca automática (somente se configurado)
-    nivel_auto = data_auto = hora_auto = None
+        with c1:
+            st.text(row["nome_rio"])
+        with c2:
+            st.text(row["nome_municipio"])
+        with c3:
+            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
+        with c4:
+            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
+        with c5:
+            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
 
-    if (
-        str(row.get("fonte_automatica", "")).lower() == "hidroweb"
-        and pd.notna(row.get("codigo_hidroweb"))
-    ):
-        nivel_auto, data_auto, hora_auto = buscar_nivel_automatico_municipio(row)
+        registro = {
+            "id_rio": row["id_rio"],
+            "id_municipio": row["id_municipio"],
+            "data": d.strftime("%Y-%m-%d") if d else "",
+            "hora": h.strftime("%H:%M") if h else "",
+            "nivel": n if n > 0 else ""
+        }
 
-    c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
-
-    with c1:
-        st.text(row["nome_rio"])
-
-    with c2:
-        st.text(row["nome_municipio"])
-
-    with c3:
-        d = st.date_input(
-            "",
-            value=(
-                data_auto if data_auto is not None
-                else st.session_state.get(f"d{i}")
-            ),
-            key=f"d{i}"
-        )
-
-    with c4:
-        h = st.time_input(
-            "",
-            value=(
-                hora_auto if hora_auto is not None
-                else st.session_state.get(f"h{i}")
-            ),
-            key=f"h{i}"
-        )
-
-    with c5:
-        n = st.number_input(
-            "",
-            key=f"n{i}",
-            step=0.1,
-            min_value=0.0,
-            value=float(nivel_auto) if nivel_auto is not None else 0.0
-        )
-
-        if nivel_auto is not None:
-            st.caption("🔄 Leitura automática – Hidroweb")
-
-    registro = {
-        "id_rio": row["id_rio"],
-        "id_municipio": row["id_municipio"],
-        "data": d.strftime("%Y-%m-%d") if d else "",
-        "hora": h.strftime("%H:%M") if h else "",
-        "nivel": n if n > 0 else ""
-    }
-
-    if n <= 0:
-        registros_vazios.append(registro)
-    else:
-        registros.append(registro)
-
+        if n <= 0:
+            registros_vazios.append(registro)
+        else:
+            registros.append(registro)
 
     st.divider()
 
@@ -381,7 +264,7 @@ for i, row in base.iterrows():
 
             st.rerun()
 
-  
+    st.divider()
 
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
