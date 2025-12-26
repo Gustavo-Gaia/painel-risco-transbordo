@@ -6,6 +6,7 @@ import altair as alt
 import math
 from datetime import date, time
 
+
 # ==========================
 # CONFIGURAÇÕES
 # ==========================
