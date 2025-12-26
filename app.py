@@ -5,15 +5,6 @@ import requests
 import altair as alt
 import math
 from datetime import date, time
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from datetime import datetime
-
 
 # ==========================
 # CONFIGURAÇÕES
@@ -109,74 +100,6 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
         })
 
     return pd.DataFrame(linhas)
-
-def gerar_relatorio_pdf(rel):
-    caminho = "/mnt/data/monitoramento_rios_redec10_11.pdf"
-
-    doc = SimpleDocTemplate(
-        caminho,
-        pagesize=A4,
-        rightMargin=2*cm,
-        leftMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
-    )
-
-    styles = getSampleStyleSheet()
-    elementos = []
-
-    # 🟦 TÍTULO
-    elementos.append(
-        Paragraph(
-            "<b>MONITORAMENTO DOS RIOS</b><br/>"
-            "REDEC 10 – NORTE / REDEC 11 – NOROESTE",
-            ParagraphStyle(
-                name="Titulo",
-                fontSize=18,
-                alignment=1,
-                spaceAfter=18
-            )
-        )
-    )
-
-    elementos.append(
-        Paragraph(
-            f"<i>Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</i>",
-            styles["Normal"]
-        )
-    )
-
-    elementos.append(Spacer(1, 20))
-
-    # 📊 TABELA GERAL
-    tabela_dados = [["Rio", "Município", "Última Medição", "Cota", "Fonte"]]
-
-    for _, row in rel.iterrows():
-        tabela_dados.append([
-            row["Rio"],
-            row["Município"],
-            row["Última Medição"],
-            row["Cota de Transbordo"] if pd.notna(row["Cota de Transbordo"]) else "—",
-            row["Fonte"]
-        ])
-
-    tabela = Table(tabela_dados, repeatRows=1, colWidths=[4*cm, 4*cm, 3*cm, 3*cm, 3*cm])
-
-    tabela.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0B5ED7")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONT", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("ALIGN", (2, 1), (-1, -1), "CENTER"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-    ]))
-
-    elementos.append(tabela)
-
-    doc.build(elementos)
-    return caminho
-
 
 # ==========================
 # CARREGAMENTO DE DADOS
@@ -350,9 +273,6 @@ if st.session_state.admin:
 if not st.session_state.admin:
     st.title("🌊 Monitoramento de Rios")
 
-    # -------------------------
-    # Seleção de Rio e Município
-    # -------------------------
     col1, col2 = st.columns(2)
     with col1:
         rio_sel = st.selectbox("Rio", rios["nome_rio"])
@@ -368,9 +288,6 @@ if not st.session_state.admin:
         (leituras["id_municipio"] == mun_row["id_municipio"])
     ]
 
-    # -------------------------
-    # Situação Atual
-    # -------------------------
     if filtro.empty:
         st.warning("Sem registros para este filtro.")
     else:
@@ -391,14 +308,16 @@ if not st.session_state.admin:
             """,
             unsafe_allow_html=True
         )
+
         st.markdown(texto)
         st.markdown(f"**Nível:** {ultima['nivel']}")
+
         if perc is not None and not math.isnan(perc):
             st.markdown(f"**Percentual da cota:** {perc:.1f}%")
 
-        # -------------------------
-        # Gráfico de Evolução
-        # -------------------------
+        # ==========================
+        # 📊 GRÁFICO COM LINHA DE TRANSBORDO
+        # ==========================
         st.subheader("📊 Evolução do Nível do Rio")
         
         filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
@@ -414,6 +333,7 @@ if not st.session_state.admin:
         
         layers = [grafico_nivel]
         
+        # 🔧 cota de transbordo
         try:
             cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
             if pd.isna(cota):
@@ -422,29 +342,54 @@ if not st.session_state.admin:
             cota = None
         
         if cota and cota > 0:
-            df_cota = pd.DataFrame({"cota": [cota], "label": [f"Cota: {cota:.2f} m"]})
+            df_cota = pd.DataFrame({
+                "cota": [cota],
+                "label": [f"Cota: {cota:.2f} m"]
+            })
+        
+            # 🔴 linha da cota
             linha_cota = alt.Chart(df_cota).mark_rule(
-                color="#DC3545", strokeDash=[6, 4], strokeWidth=2
-            ).encode(y="cota:Q")
+                color="#DC3545",
+                strokeDash=[6, 4],
+                strokeWidth=2
+            ).encode(
+                y="cota:Q"
+            )
+        
+            # 🏷️ texto da cota — FIXO NO INÍCIO DO GRÁFICO
             texto_cota = alt.Chart(df_cota).mark_text(
-                align="left", dx=6, dy=-6, color="#DC3545", fontSize=12, fontWeight="bold"
-            ).encode(x=alt.value(0), y="cota:Q", text="label:N")
+                align="left",
+                dx=6,
+                dy=-6,
+                color="#DC3545",
+                fontSize=12,
+                fontWeight="bold"
+            ).encode(
+                x=alt.value(0),   # ⬅ início do eixo X
+                y="cota:Q",
+                text="label:N"
+            )
+        
             layers.extend([linha_cota, texto_cota])
         
+        # ✅ renderização correta
         st.altair_chart(
             alt.layer(*layers).resolve_scale(y="shared"),
             use_container_width=True
         )
 
-        # -------------------------
-        # Histórico de Medições
-        # -------------------------
+        # ==========================
+        # 📋 HISTÓRICO DE MEDIÇÕES
+        # ==========================
         st.subheader("📋 Histórico de Medições")
         st.caption(f"Fonte: {mun_row.get('fonte', '—')}")
 
         historico = filtro.sort_values(["data", "hora"], ascending=False)
+
         historico_exibicao = historico[["data", "hora", "nivel"]].copy()
         historico_exibicao.columns = ["Data", "Hora", "Nível"]
+
+        # 🔧 FORMATAR NÍVEL COM 2 CASAS DECIMAIS
         historico_exibicao["Nível"] = historico_exibicao["Nível"].apply(
             lambda x: f"{x:.2f}" if pd.notna(x) else "-"
         )
@@ -460,6 +405,7 @@ if not st.session_state.admin:
                 return ["background-color: #e9ecef"] * len(row)
 
             perc = (nivel / cota) * 100
+
             if perc < 85:
                 cor = "#d4edda"
             elif perc < 100:
@@ -472,87 +418,123 @@ if not st.session_state.admin:
             return [f"background-color: {cor}"] * len(row)
 
         styled_historico = (
-            historico_exibicao.reset_index(drop=True).style
+            historico_exibicao
+            .reset_index(drop=True)
+            .style
             .apply(cor_historico, axis=1)
-            .set_properties(**{"text-align": "center", "font-size": "13px"})
+            .set_properties(**{
+                "text-align": "center",
+                "font-size": "13px"
+            })
         )
-        st.dataframe(styled_historico, use_container_width=True, height=320)
 
-        # -------------------------
-        # Legenda de Situação Hidrológica
-        # -------------------------
+        st.dataframe(
+            styled_historico,
+            use_container_width=True,
+            height=320
+        )
+
+        # ==========================
+        # 🎨 LEGENDA DE SITUAÇÃO HIDROLÓGICA
+        # ==========================
         components.html(
             """
             <div style="
-                display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin-bottom:12px;
-                font-size:13px; font-family: Arial, sans-serif;
+                display:flex;
+                gap:18px;
+                flex-wrap:wrap;
+                align-items:center;
+                margin-bottom:12px;
+                font-size:13px;
+                font-family: Arial, sans-serif;
             ">
+
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="width:14px; height:14px; background:#d4edda; border-radius:3px;"></span>
                     <strong>Normal</strong> (&lt; 85%)
                 </div>
+
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="width:14px; height:14px; background:#fff3cd; border-radius:3px;"></span>
                     <strong>Alerta</strong> (85–99%)
                 </div>
+
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="width:14px; height:14px; background:#f8d7da; border-radius:3px;"></span>
                     <strong>Transbordo</strong> (100–120%)
                 </div>
+
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="width:14px; height:14px; background:#e2d6f3; border-radius:3px;"></span>
                     <strong>Risco Hidrológico Extremo</strong> (&gt; 120%)
                 </div>
+
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="width:14px; height:14px; background:#e9ecef; border-radius:3px;"></span>
                     <strong>Sem cota definida</strong>
                 </div>
+
             </div>
             """,
             height=70
         )
 
-    # ==========================
-    # Relatório Geral com Botão ao Lado do Título
-    # ==========================
-    rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
-    col_title, col_button = st.columns([4, 1])
-    with col_title:
-        st.subheader("📄 Relatório Geral de Monitoramento")
-    with col_button:
-        if rel.empty:
-            st.info("ℹ️ Não há dados suficientes para gerar o relatório em PDF.")
-        else:
-            if st.button("📄 Exportar PDF"):
-                caminho_pdf = gerar_relatorio_pdf(rel)
-                with open(caminho_pdf, "rb") as f:
-                    st.download_button(
-                        label="⬇️ Baixar PDF",
-                        data=f,
-                        file_name="monitoramento_rios_redec10_11.pdf",
-                        mime="application/pdf"
-                    )
+# ==========================
+# 📄 RELATÓRIO GERAL (ÁREA DO USUÁRIO)
+# ==========================
+if not st.session_state.admin:
+    st.subheader("📄 Relatório Geral de Monitoramento")
+
+    rel = gerar_relatorio_usuario(rios, municipios, leituras)
 
     if not rel.empty:
         rel_exibicao = rel.drop(columns=["cor"])
+
+        # 🔧 OCULTAR REPETIÇÃO DO NOME DO RIO
         rel_exibicao["Rio"] = rel_exibicao["Rio"].where(
             rel_exibicao["Rio"].ne(rel_exibicao["Rio"].shift())
         )
+
+        # 🔧 REMOVER 'nan' VISUAL
         rel_exibicao["Rio"] = rel_exibicao["Rio"].fillna("")
         rel_exibicao["Cota de Transbordo"] = rel_exibicao["Cota de Transbordo"].fillna("-")
 
         def cor_linha_fix(row):
             cor = rel.loc[row.name, "cor"]
-            cores = {"green": "#d4edda", "orange": "#fff3cd",
-                     "red": "#f8d7da", "purple": "#e2d6f3", "gray": "#e9ecef"}
+            cores = {
+                "green": "#d4edda",
+                "orange": "#fff3cd",
+                "red": "#f8d7da",
+                "purple": "#e2d6f3"
+            }
             return [f"background-color: {cores.get(cor, '#ffffff')}"] * len(rel_exibicao.columns)
 
         styled = (
             rel_exibicao.style
             .apply(cor_linha_fix, axis=1)
-            .set_properties(**{"text-align": "center", "font-size": "13px", "border": "1px solid #ccc", "padding": "6px"})
-            .set_properties(subset=["Rio", "Município"], **{"text-align": "left", "font-weight": "600"})
+            .set_properties(**{
+                "text-align": "center",
+                "font-size": "13px",
+                "border": "1px solid #ccc",
+                "padding": "6px"
+            })
+            .set_properties(subset=["Rio", "Município"], **{
+                "text-align": "left",
+                "font-weight": "600"
+            })
+            .set_table_styles([
+                {
+                    "selector": "th",
+                    "props": [
+                        ("background-color", "#0B5ED7"),
+                        ("color", "white"),
+                        ("font-size", "14px"),
+                        ("text-align", "center"),
+                        ("padding", "8px")
+                    ]
+                }
+            ])
         )
 
         st.components.v1.html(
