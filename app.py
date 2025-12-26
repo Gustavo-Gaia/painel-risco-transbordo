@@ -188,16 +188,20 @@ else:
 if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
 
-    base = municipios.merge(rios, on="id_rio")
+    # 🔧 BASE UNIFICADA
+    base = municipios.merge(rios, on="id_rio", how="left")
 
     # --------------------------
     # CONTROLES PADRÃO
     # --------------------------
     col1, col2, col3 = st.columns([2, 2, 1])
+
     with col1:
         data_padrao = st.date_input("Data padrão", value=None)
+
     with col2:
         hora_padrao = st.time_input("Hora padrão", value=None)
+
     with col3:
         if st.button("Replicar"):
             for i in range(len(base)):
@@ -209,75 +213,73 @@ if st.session_state.admin:
     registros = []
     registros_vazios = []
 
-# --------------------------
-# FORMULÁRIO DE MEDIÇÕES
-# --------------------------
-for i, row in base.iterrows():
+    # --------------------------
+    # FORMULÁRIO DE MEDIÇÕES
+    # --------------------------
+    for i, row in base.iterrows():
 
-    c1, c2, c3, c4, c5, c6 = st.columns([3, 3, 2, 2, 2, 2])
+        c1, c2, c3, c4, c5, c6 = st.columns([3, 3, 2, 2, 2, 2])
 
-    with c1:
-        st.text(row["nome_rio"])
+        with c1:
+            st.text(row["nome_rio"])
 
-    with c2:
-        st.text(row["nome_municipio"])
+        with c2:
+            st.text(row["nome_municipio"])
 
-    with c3:
-        d = st.date_input(
-            "",
-            value=st.session_state.get(f"d{i}"),
-            key=f"d{i}"
-        )
+        with c3:
+            d = st.date_input(
+                "",
+                value=st.session_state.get(f"d{i}"),
+                key=f"d{i}"
+            )
 
-    with c4:
-        h = st.time_input(
-            "",
-            value=st.session_state.get(f"h{i}"),
-            key=f"h{i}"
-        )
+        with c4:
+            h = st.time_input(
+                "",
+                value=st.session_state.get(f"h{i}"),
+                key=f"h{i}"
+            )
 
-    with c5:
-        n = st.number_input(
-            "",
-            key=f"n{i}",
-            step=0.1,
-            min_value=0.0,
-            value=st.session_state.get(f"nivel_auto_{i}", 0.0)
-        )
+        with c5:
+            n = st.number_input(
+                "",
+                key=f"n{i}",
+                step=0.1,
+                min_value=0.0,
+                value=st.session_state.get(f"nivel_auto_{i}", 0.0)
+            )
 
-    # 🔄 BOTÃO ATUALIZAR — SOMENTE CATAGUASES
-    with c6:
-        if str(row.get("codigo_hidroweb")) == "58770000":
-            if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
-                nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
+        # 🔄 BOTÃO ATUALIZAR — HIDROWEB (CATAGUASES)
+        with c6:
+            if str(row.get("codigo_hidroweb")) == "58770000":
+                if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
+                    nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
 
-                if nivel_h is not None:
-                    st.session_state[f"nivel_auto_{i}"] = nivel_h
-                    st.session_state[f"d{i}"] = data_h
-                    st.session_state[f"h{i}"] = hora_h
-                    st.success("Atualizado via Hidroweb ✅")
-                    st.rerun()
-                else:
-                    st.error("Erro ao consultar Hidroweb.")
+                    if nivel_h is not None:
+                        st.session_state[f"nivel_auto_{i}"] = nivel_h
+                        st.session_state[f"d{i}"] = data_h
+                        st.session_state[f"h{i}"] = hora_h
+                        st.rerun()
+                    else:
+                        st.error("Erro ao consultar Hidroweb.")
 
-    registro = {
-        "id_rio": row["id_rio"],
-        "id_municipio": row["id_municipio"],
-        "data": d.strftime("%Y-%m-%d") if d else "",
-        "hora": h.strftime("%H:%M") if h else "",
-        "nivel": n if n > 0 else ""
-    }
+        registro = {
+            "id_rio": row["id_rio"],
+            "id_municipio": row["id_municipio"],
+            "data": d.strftime("%Y-%m-%d") if d else "",
+            "hora": h.strftime("%H:%M") if h else "",
+            "nivel": n if n > 0 else ""
+        }
 
-    if n <= 0:
-        registros_vazios.append(registro)
-    else:
-        registros.append(registro)
-
+        if n <= 0:
+            registros_vazios.append(registro)
+        else:
+            registros.append(registro)
 
     st.divider()
 
     # --------------------------
-    # BOTÃO SALVAR
+    # BOTÃO SALVAR (UMA ÚNICA VEZ)
     # --------------------------
     if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         if registros_vazios and not st.session_state.confirmar_envio:
@@ -287,7 +289,7 @@ for i, row in base.iterrows():
             st.rerun()
 
     # --------------------------
-    # CONFIRMAÇÃO DE MEDIÇÕES VAZIAS
+    # CONFIRMAÇÃO
     # --------------------------
     if st.session_state.confirmar_envio and not st.session_state.enviando:
         st.warning(
@@ -339,6 +341,7 @@ for i, row in base.iterrows():
                 st.error("❌ Erro ao enviar algumas medições.")
 
             st.rerun()
+
 
     st.divider()
 
