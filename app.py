@@ -5,6 +5,15 @@ import requests
 import altair as alt
 import math
 from datetime import date, time
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from datetime import datetime
+
 
 # ==========================
 # CONFIGURAÇÕES
@@ -100,6 +109,74 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
         })
 
     return pd.DataFrame(linhas)
+
+def gerar_relatorio_pdf(rel):
+    caminho = "/mnt/data/monitoramento_rios_redec10_11.pdf"
+
+    doc = SimpleDocTemplate(
+        caminho,
+        pagesize=A4,
+        rightMargin=2*cm,
+        leftMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm
+    )
+
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    # 🟦 TÍTULO
+    elementos.append(
+        Paragraph(
+            "<b>MONITORAMENTO DOS RIOS</b><br/>"
+            "REDEC 10 – NORTE / REDEC 11 – NOROESTE",
+            ParagraphStyle(
+                name="Titulo",
+                fontSize=18,
+                alignment=1,
+                spaceAfter=18
+            )
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            f"<i>Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</i>",
+            styles["Normal"]
+        )
+    )
+
+    elementos.append(Spacer(1, 20))
+
+    # 📊 TABELA GERAL
+    tabela_dados = [["Rio", "Município", "Última Medição", "Cota", "Fonte"]]
+
+    for _, row in rel.iterrows():
+        tabela_dados.append([
+            row["Rio"],
+            row["Município"],
+            row["Última Medição"],
+            row["Cota de Transbordo"] if pd.notna(row["Cota de Transbordo"]) else "—",
+            row["Fonte"]
+        ])
+
+    tabela = Table(tabela_dados, repeatRows=1, colWidths=[4*cm, 4*cm, 3*cm, 3*cm, 3*cm])
+
+    tabela.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0B5ED7")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONT", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (2, 1), (-1, -1), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+    ]))
+
+    elementos.append(tabela)
+
+    doc.build(elementos)
+    return caminho
+
 
 # ==========================
 # CARREGAMENTO DE DADOS
@@ -542,6 +619,17 @@ if not st.session_state.admin:
             height=420,
             scrolling=True
         )
+    if not rel.empty:
+        if st.button("📄 Exportar Relatório Geral em PDF"):
+            caminho_pdf = gerar_relatorio_pdf(rel)
+
+            with open(caminho_pdf, "rb") as f:
+                st.download_button(
+                    label="⬇️ Baixar PDF",
+                    data=f,
+                    file_name="monitoramento_rios_redec10_11.pdf",
+                    mime="application/pdf"
+                )
 
 # ==========================
 # RODAPÉ (RESTAURADO)
