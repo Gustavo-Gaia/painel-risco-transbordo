@@ -339,17 +339,35 @@ if not st.session_state.admin:
                 cota = None
         except:
             cota = None
+if cota and cota > 0:
+    df_cota = pd.DataFrame({
+        "cota": [cota],
+        "label": [f"Cota: {cota:.2f} m"]
+    })
 
-        if cota and cota > 0:
-            linha_cota = alt.Chart(
-                pd.DataFrame({"cota": [cota]})
-            ).mark_rule(
-                color="#DC3545",
-                strokeDash=[6, 4],
-                strokeWidth=2
-            ).encode(y="cota:Q")
-            layers.append(linha_cota)
+    # 🔴 linha da cota
+    linha_cota = alt.Chart(df_cota).mark_rule(
+        color="#DC3545",
+        strokeDash=[6, 4],
+        strokeWidth=2
+    ).encode(
+        y="cota:Q"
+    )
 
+    # 🏷️ texto da cota
+    texto_cota = alt.Chart(df_cota).mark_text(
+        align="left",
+        dx=6,
+        dy=-6,
+        color="#DC3545",
+        fontSize=12,
+        fontWeight="bold"
+    ).encode(
+        y="cota:Q",
+        text="label:N"
+    )
+
+    layers.extend([linha_cota, texto_cota])
         st.altair_chart(
             alt.layer(*layers).resolve_scale(y="shared"),
             use_container_width=True
