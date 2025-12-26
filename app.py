@@ -278,16 +278,17 @@ if st.session_state.admin:
             )
 
         with c5:
-            n = st.number_input(
-                "",
-                key=f"n{i}",
-                step=0.1,
-                min_value=0.0,
-                value=float(nivel_auto) if nivel_auto else 0.0
-            )
+    n = st.number_input(
+        "",
+        key=f"n{i}",
+        step=0.1,
+        min_value=0.0,
+        value=float(nivel_auto) if nivel_auto is not None else 0.0
+    )
 
-            if nivel_auto:
-                st.caption("🔄 Leitura automática – Hidroweb")
+    if nivel_auto is not None:
+        st.caption("🔄 Leitura automática – Hidroweb")
+
 
         registro = {
             "id_rio": row["id_rio"],
