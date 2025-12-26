@@ -315,68 +315,68 @@ if not st.session_state.admin:
         if perc is not None and not math.isnan(perc):
             st.markdown(f"**Percentual da cota:** {perc:.1f}%")
 
-# ==========================
-# 📊 GRÁFICO COM LINHA DE TRANSBORDO
-# ==========================
-st.subheader("📊 Evolução do Nível do Rio")
-
-filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
-filtro = filtro.sort_values("data_hora")
-
-grafico_nivel = alt.Chart(filtro).mark_line(
-    color="#0B5ED7",
-    strokeWidth=3
-).encode(
-    x=alt.X("data_hora:T", title="Data / Hora"),
-    y=alt.Y("nivel:Q", title="Nível do Rio")
-)
-
-layers = [grafico_nivel]
-
-# 🔧 cota de transbordo
-try:
-    cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
-    if pd.isna(cota):
-        cota = None
-except:
-    cota = None
-
-if cota and cota > 0:
-    df_cota = pd.DataFrame({
-        "cota": [cota],
-        "label": [f"Cota: {cota:.2f} m"]
-    })
-
-    # 🔴 linha da cota
-    linha_cota = alt.Chart(df_cota).mark_rule(
-        color="#DC3545",
-        strokeDash=[6, 4],
-        strokeWidth=2
-    ).encode(
-        y="cota:Q"
-    )
-
-    # 🏷️ texto da cota — FIXO NO INÍCIO DO GRÁFICO
-    texto_cota = alt.Chart(df_cota).mark_text(
-        align="left",
-        dx=6,
-        dy=-6,
-        color="#DC3545",
-        fontSize=12,
-        fontWeight="bold"
-    ).encode(
-        x=alt.value(0),   # ⬅ início do eixo X
-        y="cota:Q",
-        text="label:N"
-    )
-
-    layers.extend([linha_cota, texto_cota])
-
-# ✅ renderização correta
-st.altair_chart(
-    alt.layer(*layers).resolve_scale(y="shared"),
-    use_container_width=True
-)
+        # ==========================
+        # 📊 GRÁFICO COM LINHA DE TRANSBORDO
+        # ==========================
+        st.subheader("📊 Evolução do Nível do Rio")
+        
+        filtro["data_hora"] = pd.to_datetime(filtro["data"] + " " + filtro["hora"])
+        filtro = filtro.sort_values("data_hora")
+        
+        grafico_nivel = alt.Chart(filtro).mark_line(
+            color="#0B5ED7",
+            strokeWidth=3
+        ).encode(
+            x=alt.X("data_hora:T", title="Data / Hora"),
+            y=alt.Y("nivel:Q", title="Nível do Rio")
+        )
+        
+        layers = [grafico_nivel]
+        
+        # 🔧 cota de transbordo
+        try:
+            cota = float(str(mun_row.get("nivel_transbordo")).replace(",", "."))
+            if pd.isna(cota):
+                cota = None
+        except:
+            cota = None
+        
+        if cota and cota > 0:
+            df_cota = pd.DataFrame({
+                "cota": [cota],
+                "label": [f"Cota: {cota:.2f} m"]
+            })
+        
+            # 🔴 linha da cota
+            linha_cota = alt.Chart(df_cota).mark_rule(
+                color="#DC3545",
+                strokeDash=[6, 4],
+                strokeWidth=2
+            ).encode(
+                y="cota:Q"
+            )
+        
+            # 🏷️ texto da cota — FIXO NO INÍCIO DO GRÁFICO
+            texto_cota = alt.Chart(df_cota).mark_text(
+                align="left",
+                dx=6,
+                dy=-6,
+                color="#DC3545",
+                fontSize=12,
+                fontWeight="bold"
+            ).encode(
+                x=alt.value(0),   # ⬅ início do eixo X
+                y="cota:Q",
+                text="label:N"
+            )
+        
+            layers.extend([linha_cota, texto_cota])
+        
+        # ✅ renderização correta
+        st.altair_chart(
+            alt.layer(*layers).resolve_scale(y="shared"),
+            use_container_width=True
+        )
 
         # ==========================
         # 📋 HISTÓRICO DE MEDIÇÕES
