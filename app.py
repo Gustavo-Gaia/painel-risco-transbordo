@@ -100,6 +100,47 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
         })
 
     return pd.DataFrame(linhas)
+def buscar_hidroweb_cataguases():
+    """
+    Busca a última leitura de nível da estação Hidroweb 58770000 (Cataguases)
+    Retorna: nivel (float), data (date), hora (time)
+    """
+    url = "https://www.snirh.gov.br/hidroweb/rest/api/serieHistoricaEstacoes"
+
+    params = {
+        "codigoEstacao": 58770000,
+        "tipoDados": 1,  # cota / nível
+        "size": 1,
+        "page": 0,
+        "ordenacao": "DESC"
+    }
+
+    try:
+        r = requests.get(url, params=params, timeout=6)
+        r.raise_for_status()
+
+        data = r.json()
+        conteudo = data.get("content", [])
+
+        if not conteudo:
+            return None, None, None
+
+        leitura = conteudo[0]
+
+        nivel = leitura.get("valor")
+        data_str = leitura.get("data")
+        hora_str = leitura.get("hora")
+
+        if nivel is None or not data_str or not hora_str:
+            return None, None, None
+
+        data_med = pd.to_datetime(data_str).date()
+        hora_med = pd.to_datetime(hora_str).time()
+
+        return float(nivel), data_med, hora_med
+
+    except Exception:
+        return None, None, None
 
 # ==========================
 # CARREGAMENTO DE DADOS
@@ -183,7 +224,28 @@ if st.session_state.admin:
         with c4:
             h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
         with c5:
-            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
+    n = st.number_input(
+        "",
+        key=f"n{i}",
+        step=0.1,
+        min_value=0.0,
+        value=st.session_state.get(f"nivel_auto_{i}", 0.0)
+    )
+
+    # 🔄 BOTÃO HIDROWEB — SOMENTE CATAGUASES
+    if row["nome_municipio"] == "Cataguases":
+        if st.button("🔄 Atualizar (Hidroweb)", key=f"btn_hidro_{i}"):
+            nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
+
+            if nivel_h is not None:
+                st.session_state[f"nivel_auto_{i}"] = nivel_h
+                st.session_state[f"d{i}"] = data_h
+                st.session_state[f"h{i}"] = hora_h
+                st.success("Leitura Hidroweb atualizada ✅")
+                st.rerun()
+            else:
+                st.error("Não foi possível obter dados do Hidroweb.")
+
 
         registro = {
             "id_rio": row["id_rio"],
