@@ -280,15 +280,16 @@ else:
 
 st.divider()
 
-    # --------------------------
-    # BOTÃO SALVAR (UMA ÚNICA VEZ)
-    # --------------------------
-    if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
-        if registros_vazios and not st.session_state.confirmar_envio:
-            st.session_state.confirmar_envio = True
-        else:
-            st.session_state.enviando = True
-            st.rerun()
+# --------------------------
+# BOTÃO SALVAR (UMA ÚNICA VEZ)
+# --------------------------
+if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
+    if registros_vazios and not st.session_state.confirmar_envio:
+        st.session_state.confirmar_envio = True
+    else:
+        st.session_state.enviando = True
+        st.rerun()
+
 
     # --------------------------
     # CONFIRMAÇÃO
