@@ -213,39 +213,43 @@ if st.session_state.admin:
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
     for i, row in base.iterrows():
-        c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
+    c1, c2, c3, c4, c5, c6 = st.columns([3, 3, 2, 2, 2, 2])
 
-        with c1:
-            st.text(row["nome_rio"])
-        with c2:
-            st.text(row["nome_municipio"])
-        with c3:
-            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
-        with c4:
-            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
-        with c5:
-            n = st.number_input(
-        "",
-        key=f"n{i}",
-        step=0.1,
-        min_value=0.0,
-        value=st.session_state.get(f"nivel_auto_{i}", 0.0)
-    )
+    with c1:
+        st.text(row["nome_rio"])
 
-    # 🔄 BOTÃO HIDROWEB — CATAGUASES (58770000)
-    if str(row.get("codigo_hidroweb")) == "58770000":
-        if st.button("🔄 Atualizar (Hidroweb)", key=f"btn_hidro_{i}"):
-            nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
+    with c2:
+        st.text(row["nome_municipio"])
 
-            if nivel_h is not None:
-                st.session_state[f"nivel_auto_{i}"] = nivel_h
-                st.session_state[f"d{i}"] = data_h
-                st.session_state[f"h{i}"] = hora_h
-                st.success("Leitura Hidroweb atualizada ✅")
-                st.rerun()
-            else:
-                st.error("Não foi possível obter dados do Hidroweb.")
+    with c3:
+        d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
 
+    with c4:
+        h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
+
+    with c5:
+        n = st.number_input(
+            "",
+            key=f"n{i}",
+            step=0.1,
+            min_value=0.0,
+            value=st.session_state.get(f"nivel_auto_{i}", 0.0)
+        )
+
+    # 🔄 COLUNA EXCLUSIVA DO BOTÃO
+    with c6:
+        if str(row.get("codigo_hidroweb")) == "58770000":
+            if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
+                nivel_h, data_h, hora_h = buscar_hidroweb_cataguases()
+
+                if nivel_h is not None:
+                    st.session_state[f"nivel_auto_{i}"] = nivel_h
+                    st.session_state[f"d{i}"] = data_h
+                    st.session_state[f"h{i}"] = hora_h
+                    st.success("Atualizado via Hidroweb ✅")
+                    st.rerun()
+                else:
+                    st.error("Erro ao consultar Hidroweb.")
 
 
         registro = {
