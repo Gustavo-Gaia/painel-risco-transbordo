@@ -209,10 +209,11 @@ if st.session_state.admin:
     registros = []
     registros_vazios = []
 
-    # --------------------------
-    # FORMULÁRIO DE MEDIÇÕES
-    # --------------------------
-    for i, row in base.iterrows():
+# --------------------------
+# FORMULÁRIO DE MEDIÇÕES
+# --------------------------
+for i, row in base.iterrows():
+
     c1, c2, c3, c4, c5, c6 = st.columns([3, 3, 2, 2, 2, 2])
 
     with c1:
@@ -222,10 +223,18 @@ if st.session_state.admin:
         st.text(row["nome_municipio"])
 
     with c3:
-        d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
+        d = st.date_input(
+            "",
+            value=st.session_state.get(f"d{i}"),
+            key=f"d{i}"
+        )
 
     with c4:
-        h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
+        h = st.time_input(
+            "",
+            value=st.session_state.get(f"h{i}"),
+            key=f"h{i}"
+        )
 
     with c5:
         n = st.number_input(
@@ -236,7 +245,7 @@ if st.session_state.admin:
             value=st.session_state.get(f"nivel_auto_{i}", 0.0)
         )
 
-    # 🔄 COLUNA EXCLUSIVA DO BOTÃO
+    # 🔄 BOTÃO ATUALIZAR — SOMENTE CATAGUASES
     with c6:
         if str(row.get("codigo_hidroweb")) == "58770000":
             if st.button("🔄 Atualizar", key=f"btn_hidro_{i}"):
@@ -251,19 +260,19 @@ if st.session_state.admin:
                 else:
                     st.error("Erro ao consultar Hidroweb.")
 
+    registro = {
+        "id_rio": row["id_rio"],
+        "id_municipio": row["id_municipio"],
+        "data": d.strftime("%Y-%m-%d") if d else "",
+        "hora": h.strftime("%H:%M") if h else "",
+        "nivel": n if n > 0 else ""
+    }
 
-        registro = {
-            "id_rio": row["id_rio"],
-            "id_municipio": row["id_municipio"],
-            "data": d.strftime("%Y-%m-%d") if d else "",
-            "hora": h.strftime("%H:%M") if h else "",
-            "nivel": n if n > 0 else ""
-        }
+    if n <= 0:
+        registros_vazios.append(registro)
+    else:
+        registros.append(registro)
 
-        if n <= 0:
-            registros_vazios.append(registro)
-        else:
-            registros.append(registro)
 
     st.divider()
 
