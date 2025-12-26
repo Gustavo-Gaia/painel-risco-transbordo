@@ -265,7 +265,8 @@ if st.session_state.admin:
             st.rerun()
 
     st.divider()
-
+# ⛔ impede renderização da área pública
+    st.stop()
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
 # ==========================
