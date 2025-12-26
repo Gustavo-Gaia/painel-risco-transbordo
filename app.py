@@ -342,24 +342,31 @@ if not st.session_state.admin:
             cota = None
         
         if cota and cota > 0:
-            x_texto = filtro["data_hora"].max()
+            x_fim = filtro["data_hora"].max()
+        
+            # deslocamento para reservar espaço do texto (ajuste se quiser)
+            deslocamento = (x_fim - filtro["data_hora"].min()) * 0.15
+            x_inicio = x_fim - deslocamento
         
             df_cota = pd.DataFrame({
                 "cota": [cota],
                 "label": [f"Cota: {cota:.2f} m"],
-                "x_texto": [x_texto]
+                "x_inicio": [x_inicio],
+                "x_fim": [x_fim]
             })
         
-            # 🔴 linha da cota (horizontal)
+            # 🔴 linha da cota COMEÇA após o texto
             linha_cota = alt.Chart(df_cota).mark_rule(
                 color="#DC3545",
                 strokeDash=[6, 4],
                 strokeWidth=2
             ).encode(
+                x="x_inicio:T",
+                x2="x_fim:T",
                 y="cota:Q"
             )
         
-            # 🏷️ texto da cota — canto direito, sem sobrepor dados
+            # 🏷️ texto da cota — canto direito
             texto_cota = alt.Chart(df_cota).mark_text(
                 align="right",
                 dx=-6,
@@ -368,14 +375,15 @@ if not st.session_state.admin:
                 fontSize=12,
                 fontWeight="bold"
             ).encode(
-                x="x_texto:T",
+                x="x_fim:T",
                 y="cota:Q",
                 text="label:N"
             )
         
             layers.extend([linha_cota, texto_cota])
-
         
+        
+                
         # ✅ renderização correta
         st.altair_chart(
             alt.layer(*layers).resolve_scale(y="shared"),
