@@ -5,13 +5,15 @@ import requests
 import altair as alt
 import math
 from datetime import date, time
-from bs4 import BeautifulSoup
+# ==========================================
+# FUNÇÃO ROBÔ INEA (VERSÃO PAINEL VISUAL)
+# ==========================================
 import urllib3
 from io import StringIO
+from bs4 import BeautifulSoup
 
-# Desativa avisos de SSL
+# Desativa avisos de segurança de conexão
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 # ==========================
 # CONFIGURAÇÕES
@@ -42,59 +44,33 @@ def carregar_aba(nome):
     return pd.read_csv(url)
 
 
-def buscar_inea(url_estacao):
-    url_csv = url_estacao.replace(".html", ".csv")
+def buscar_inea(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
-        response = requests.get(url_csv, verify=False, timeout=15)
-        if response.status_code != 200:
-            return None
-
-        conteudo = response.text
-        linhas = conteudo.splitlines()
+        # Acessa o site (ignora erro de SSL)
+        response = requests.get(url, headers=headers, verify=False, timeout=15)
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 1. Procura a linha onde a tabela começa
-        linha_cabecalho = -1
-        for i, linha in enumerate(linhas):
-            if "Nivel" in linha or "Nível" in linha:
-                linha_cabecalho = i
+        # Procura o valor do Nível no painel (ex: o "2.04" da sua foto)
+        nivel = None
+        # O site do INEA usa uma estrutura de texto para identificar o nível atual
+        elementos = soup.find_all(text=True)
+        for i, texto in enumerate(elementos):
+            if "Nível as:" in texto:
+                # O valor numérico costuma ser o próximo elemento de texto
+                valor_bruto = elementos[i+1].strip()
+                nivel = float(valor_bruto.replace(',', '.'))
                 break
         
-        if linha_cabecalho == -1:
-            return None
-        
-        # 2. Lê o CSV
-        df_inea = pd.read_csv(StringIO(conteudo), sep=';', encoding='latin-1', skiprows=linha_cabecalho)
-        
-        # 3. VERIFICAÇÃO CRÍTICA: Se o dataframe tem linhas de dados
-        if df_inea.empty or len(df_inea) < 1:
-            st.warning("📴 Estação Offline: O arquivo foi baixado, mas não contém medições recentes no site do INEA.")
-            return None
-        
-        # Limpa os nomes das colunas
-        df_inea.columns = [c.strip() for c in df_inea.columns]
-        
-        # 4. Pega a primeira linha de dados com segurança
-        ultima_leitura = df_inea.iloc[0]
-        
-        # Identifica colunas de Data e Nível
-        col_data = next((c for c in df_inea.columns if "Data" in c or "Hora" in c), df_inea.columns[0])
-        col_nivel = next((c for c in df_inea.columns if "Nivel" in c or "Nível" in c), df_inea.columns[1])
-        
-        data_hora_texto = str(ultima_leitura[col_data])
-        
-        # Trata o valor do nível
-        nivel_raw = str(ultima_leitura[col_nivel]).split()[0]
-        nivel = float(nivel_raw.replace(',', '.'))
-        
-        dt_obj = pd.to_datetime(data_hora_texto, dayfirst=True, errors='coerce')
-        
-        return {
-            "nivel": nivel,
-            "data": dt_obj.date(),
-            "hora": dt_obj.time()
-        }
+        if nivel is not None:
+            return {
+                "nivel": nivel,
+                "data": date.today(), # Usa a data de hoje do sistema
+                "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute) # Hora atual
+            }
+        return None
     except Exception as e:
-        st.error(f"Erro técnico na captura: {e}")
+        st.error(f"Erro na captura visual: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
@@ -175,52 +151,39 @@ else:
         st.session_state.admin = False
         st.rerun()
 
-# ==========================
-# PAINEL ADMINISTRADOR
-# ==========================
+# ==========================================
+# PAINEL ADMINISTRADOR (CORRIGIDO)
+# ==========================================
 if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
     base = municipios.merge(rios, on="id_rio")
 
-    # CONTROLES E CAPTURA AUTOMÁTICA
+    # 1. CONTROLES DE CAPTURA
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     
     with col_auto:
-        st.write("🛰️ **Captura INEA**")
+        st.write("🛰️ **Captura Automática (INEA)**")
         c_btn1, c_btn2 = st.columns(2)
-        
         with c_btn1:
             if st.button("🔄 Lagoa de Cima"):
-                url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
-                dados = buscar_inea(url)
+                dados = buscar_inea("https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html")
                 if dados:
-                    achou = False
                     for i, row in base.iterrows():
                         if "lagoa de cima" in str(row["nome_rio"]).lower():
-                            st.session_state[f"d{i}"] = dados["data"]
-                            st.session_state[f"h{i}"] = dados["hora"]
-                            st.session_state[f"n{i}"] = dados["nivel"]
-                            achou = True
-                    if achou: st.success("Lagoa de Cima atualizada!"); st.rerun()
-                    else: st.warning("Rio 'Lagoa de Cima' não encontrado na lista.")
-                else: st.error("Erro ao conectar (Lagoa de Cima).")
-
+                            st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
+                    st.success("Lagoa de Cima ok!"); st.rerun()
+                else: st.error("Falha no INEA.")
+        
         with c_btn2:
-            if st.button("🔄 Rio Pomba"):
-                url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html"
-                dados = buscar_inea(url)
+            if st.button("🔄 Rio Pomba (Pádua)"):
+                dados = buscar_inea("https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html")
                 if dados:
-                    achou = False
                     for i, row in base.iterrows():
-                        nome_rio = str(row["nome_rio"]).lower()
-                        if "pomba" in nome_rio or "pádua" in nome_rio:
-                            st.session_state[f"d{i}"] = dados["data"]
-                            st.session_state[f"h{i}"] = dados["hora"]
-                            st.session_state[f"n{i}"] = dados["nivel"]
-                            achou = True
-                    if achou: st.success("Rio Pomba atualizado!"); st.rerun()
-                    else: st.warning("Rio Pomba não encontrado na lista.")
-                else: st.error("Erro ao conectar (Rio Pomba).")
+                        nome = str(row["nome_rio"]).lower()
+                        if "pomba" in nome or "pádua" in nome:
+                            st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
+                    st.success("Rio Pomba ok!"); st.rerun()
+                else: st.error("Falha no INEA.")
 
     with col_man1: 
         data_padrao = st.date_input("Data padrão", value=None)
@@ -232,7 +195,9 @@ if st.session_state.admin:
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
 
-    # FORMULÁRIO DE MEDIÇÕES
+    st.divider()
+
+    # 2. FORMULÁRIO DE MEDIÇÕES (Correção do NameError: listas criadas ANTES do for)
     registros = []
     registros_vazios = []
 
@@ -241,14 +206,11 @@ if st.session_state.admin:
         with c1: st.text(row["nome_rio"])
         with c2: st.text(row["nome_municipio"])
         with c3: 
-            # Corrigido: label="Data" evita o erro de acessibilidade
             d = st.date_input("Data", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
         with c4: 
-            # Corrigido: label="Hora" evita o erro de acessibilidade
             h = st.time_input("Hora", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
         with c5: 
-            # Corrigido: label="Nível" evita o erro de acessibilidade
-            n = st.number_input("Nível", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
+            n = st.number_input("Nível", value=st.session_state.get(f"n{i}", 0.0), key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
 
         registro = {
             "id_rio": row["id_rio"],
@@ -257,6 +219,7 @@ if st.session_state.admin:
             "hora": h.strftime("%H:%M") if h else "",
             "nivel": n if n > 0 else ""
         }
+        
         if n <= 0: registros_vazios.append(registro)
         else: registros.append(registro)
 
