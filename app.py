@@ -42,7 +42,8 @@ def buscar_inea():
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         tabela = soup.find('table')
-        if not tabela: return None
+        if not tabela: 
+            return None
         linhas = tabela.find_all('tr')
         colunas = linhas[1].find_all('td')
         data_hora_texto = colunas[0].text.strip()
@@ -67,10 +68,14 @@ def calcular_situacao(nivel, cota):
         return "Sem cota definida", "gray", None, "Cota de transbordo não definida."
 
     perc = (nivel / cota) * 100
-    if perc < 85: return "Normal", "green", perc, "Nível dentro da normalidade."
-    elif perc < 100: return "Alerta", "orange", perc, "Atenção: nível elevado."
-    elif perc <= 120: return "Transbordo", "red", perc, "Rio acima da cota de transbordo."
-    else: return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
+    if perc < 85: 
+        return "Normal", "green", perc, "Nível dentro da normalidade."
+    elif perc < 100: 
+        return "Alerta", "orange", perc, "Atenção: nível elevado."
+    elif perc <= 120: 
+        return "Transbordo", "red", perc, "Rio acima da cota de transbordo."
+    else: 
+        return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
 
 def enviar_formulario(payload):
     r = requests.post(FORM_URL, data=payload)
@@ -81,7 +86,8 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
     linhas = []
     for _, row in base.iterrows():
         filtro = leituras[(leituras["id_rio"] == row["id_rio"]) & (leituras["id_municipio"] == row["id_municipio"])].sort_values(["data", "hora"])
-        if filtro.empty: continue
+        if filtro.empty: 
+            continue
         ultima = filtro.iloc[-1]
         penultima = filtro.iloc[-2] if len(filtro) > 1 else None
         situacao, cor, _, _ = calcular_situacao(ultima["nivel"], row.get("nivel_transbordo"))
@@ -96,7 +102,6 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
             "cor": cor
         })
     return pd.DataFrame(linhas)
-
 # ==========================
 # CARREGAMENTO DE DADOS
 # ==========================
