@@ -36,7 +36,29 @@ ADMIN_SENHA = st.secrets["ADMIN_SENHA"]
 def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
-
+def buscar_inea():
+    url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        tabela = soup.find('table')
+        linhas = tabela.find_all('tr')
+        # Pega a primeira linha de dados
+        colunas = linhas[1].find_all('td')
+        
+        data_hora_texto = colunas[0].text.strip()
+        nivel_texto = colunas[1].text.strip().replace(',', '.')
+        
+        dt_obj = pd.to_datetime(data_hora_texto, format='%d/%m/%Y %H:%M')
+        
+        return {
+            "nivel": float(nivel_texto),
+            "data": dt_obj.date(),
+            "hora": dt_obj.time()
+        }
+    except Exception as e:
+        return None
 def calcular_situacao(nivel, cota):
     try:
         nivel = float(str(nivel).replace(",", "."))
@@ -151,24 +173,34 @@ if st.session_state.admin:
     base = municipios.merge(rios, on="id_rio")
 
     # --------------------------
-    # CONTROLES PADRÃO
+    # CONTROLES PADRÃO E CAPTURA AUTOMÁTICA
     # --------------------------
-    col1, col2, col3 = st.columns([2, 2, 1])
-    with col1:
+    col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
+    
+    with col_auto:
+        if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
+            dados_inea = buscar_inea()
+            if dados_inea:
+                # O código percorre os rios e preenche apenas o que tiver "Lagoa de Cima"
+                for i, row in base.iterrows():
+                    if "Lagoa de Cima" in str(row["nome_rio"]):
+                        st.session_state[f"d{i}"] = dados_inea["data"]
+                        st.session_state[f"h{i}"] = dados_inea["hora"]
+                        st.session_state[f"n{i}"] = dados_inea["nivel"]
+                st.success("Dados capturados! Confira abaixo.")
+                st.rerun()
+            else:
+                st.error("Erro ao conectar com o INEA.")
+
+    with col_man1:
         data_padrao = st.date_input("Data padrão", value=None)
-    with col2:
+    with col_man2:
         hora_padrao = st.time_input("Hora padrão", value=None)
-    with col3:
-        if st.button("Replicar"):
+    with col_man3:
+        if st.button("Replicar Manual"):
             for i in range(len(base)):
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
-
-    st.divider()
-
-    registros = []
-    registros_vazios = []
-
     # --------------------------
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
