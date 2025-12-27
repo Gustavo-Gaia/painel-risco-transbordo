@@ -44,43 +44,33 @@ def carregar_aba(nome):
     return pd.read_csv(url)
 
 
-def buscar_inea(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    try:
-        # Acessa o site ignorando o erro de SSL (certificado)
-        response = requests.get(url, headers=headers, verify=False, timeout=20)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # O site do INEA exibe o nível dentro de uma estrutura de texto. 
-        # Vamos buscar por todas as ocorrências de texto na página.
-        texto_pagina = soup.get_text()
-        
-        # Procuramos o padrão "Nível as: 10:15 2.04" ou similar
-        import re
-        # Esta regra procura a palavra Nível, ignora o que vem depois e pega o número decimal
-        padrao = re.search(r"Nível as:.*?(\d+[.,]\d+)", texto_pagina)
-        
-        if padrao:
-            valor_nivel = float(padrao.group(1).replace(',', '.'))
-            return {
-                "nivel": valor_nivel,
-                "data": date.today(),
-                "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute)
-            }
-        
-        # Se não achou pelo padrão acima, tenta buscar em negritos (tags <b>)
-        for b in soup.find_all('b'):
-            if '.' in b.text or ',' in b.text:
-                try:
-                    valor = float(b.text.strip().replace(',', '.'))
-                    return {"nivel": valor, "data": date.today(), "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute)}
-                except: continue
+import xml.etree.ElementTree as ET
 
+def buscar_rio_ana(cod_estacao):
+    try:
+        # Link da API da ANA (Hidroweb)
+        url = f"https://www.snirh.gov.br/hidroweb/rest/api/documento/gerarTelemetrias?codEstacao={cod_estacao}&dataInicio={date.today().strftime('%d/%m/%Y')}&dataFim={date.today().strftime('%d/%m/%Y')}"
+        
+        response = requests.get(url, timeout=15)
+        if response.status_code != 200:
+            return None
+            
+        # A ANA retorna um XML. Vamos pegar o primeiro registro (mais recente)
+        root = ET.fromstring(response.content)
+        for leitura in root.findall('.//telemetria'):
+            nivel = leitura.find('nivel').text
+            data_hora = leitura.find('dataHora').text # Formato: 2025-12-27T10:15:00
+            
+            if nivel:
+                dt_obj = pd.to_datetime(data_hora)
+                return {
+                    "nivel": float(nivel),
+                    "data": dt_obj.date(),
+                    "hora": dt_obj.time()
+                }
         return None
     except Exception as e:
-        st.error(f"Erro na captura: {e}")
+        st.error(f"Erro na API Nacional: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
@@ -172,28 +162,28 @@ if st.session_state.admin:
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     
     with col_auto:
-        st.write("🛰️ **Captura Automática (INEA)**")
+        st.write("🛰️ **Captura Automática (ANA/INEA)**")
         c_btn1, c_btn2 = st.columns(2)
+        
         with c_btn1:
             if st.button("🔄 Lagoa de Cima"):
-                dados = buscar_inea("https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html")
+                dados = buscar_rio_ana("214110320") # Código da estação
                 if dados:
                     for i, row in base.iterrows():
-                        if "lagoa de cima" in str(row["nome_rio"]).lower():
+                        if "lagoa" in str(row["nome_rio"]).lower():
                             st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
-                    st.success("Lagoa de Cima ok!"); st.rerun()
-                else: st.error("Falha no INEA.")
-        
+                    st.success("Atualizado via ANA!"); st.rerun()
+                else: st.error("Dados indisponíveis na ANA.")
+
         with c_btn2:
-            if st.button("🔄 Rio Pomba (Pádua)"):
-                dados = buscar_inea("https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html")
+            if st.button("🔄 Rio Pomba"):
+                dados = buscar_rio_ana("58380000") # Código de Pádua
                 if dados:
                     for i, row in base.iterrows():
-                        nome = str(row["nome_rio"]).lower()
-                        if "pomba" in nome or "pádua" in nome:
+                        if "pomba" in str(row["nome_rio"]).lower():
                             st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
-                    st.success("Rio Pomba ok!"); st.rerun()
-                else: st.error("Falha no INEA.")
+                    st.success("Atualizado via ANA!"); st.rerun()
+                else: st.error("Dados indisponíveis na ANA.")
 
     with col_man1: 
         data_padrao = st.date_input("Data padrão", value=None)
