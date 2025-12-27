@@ -141,15 +141,27 @@ if st.session_state.admin:
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     with col_auto:
         if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
+            with col_auto:
+        if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
             dados_inea = buscar_inea()
             if dados_inea:
+                achou = False
                 for i, row in base.iterrows():
-                    if "Lagoa de Cima" in str(row["nome_rio"]):
+                    # Compara os nomes ignorando maiúsculas/minúsculas e espaços
+                    nome_rio_tabela = str(row["nome_rio"]).strip().lower()
+                    if "lagoa de cima" in nome_rio_tabela:
                         st.session_state[f"d{i}"] = dados_inea["data"]
                         st.session_state[f"h{i}"] = dados_inea["hora"]
                         st.session_state[f"n{i}"] = dados_inea["nivel"]
-                st.success("Dados capturados!")
-                st.rerun()
+                        achou = True
+                
+                if achou:
+                    st.success("Dados capturados! Confira abaixo na linha da Lagoa de Cima.")
+                    st.rerun()
+                else:
+                    st.warning("Dados obtidos, mas não encontrei 'Lagoa de Cima' na sua lista de rios.")
+            else:
+                st.error("Erro ao conectar com o INEA. O site deles pode estar instável.")
 
     with col_man1: data_padrao = st.date_input("Data padrão", value=None)
     with col_man2: hora_padrao = st.time_input("Hora padrão", value=None)
