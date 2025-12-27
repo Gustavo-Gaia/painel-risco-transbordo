@@ -53,44 +53,38 @@ def buscar_inea(url_estacao):
         linhas = conteudo.splitlines()
         
         # Procura a linha onde a tabela começa
-        linha_cabecalho = 0
+        linha_cabecalho = -1
         for i, linha in enumerate(linhas):
             if "Nivel" in linha or "Nível" in linha:
                 linha_cabecalho = i
                 break
         
+        if linha_cabecalho == -1:
+            st.warning("⚠️ O site do INEA não enviou a tabela de dados para esta estação.")
+            return None
+        
+        # Lê o CSV
         df_inea = pd.read_csv(StringIO(conteudo), sep=';', encoding='latin-1', skiprows=linha_cabecalho)
         
-        if df_inea.empty:
+        # VERIFICAÇÃO CRÍTICA: Se o dataframe tem linhas de dados
+        if len(df_inea) == 0:
+            st.warning("📴 Estação Offline: O arquivo foi baixado, mas não contém medições recentes.")
             return None
         
         # Limpa os nomes das colunas
         df_inea.columns = [c.strip() for c in df_inea.columns]
         
-        # PEGA A PRIMEIRA LINHA
+        # Pega a primeira linha de dados com segurança
         ultima_leitura = df_inea.iloc[0]
         
-        # --- DETETIVE DE COLUNAS ---
-        # Tenta achar a coluna de Data (pode ser "Data", "Data/Hora", "Hora", etc)
-        col_data = df_inea.columns[0] # Geralmente é a primeira
-        for c in df_inea.columns:
-            if "Data" in c or "Hora" in c:
-                col_data = c
-                break
+        # Identifica colunas de Data e Nível
+        col_data = next((c for c in df_inea.columns if "Data" in c or "Hora" in c), df_inea.columns[0])
+        col_nivel = next((c for c in df_inea.columns if "Nivel" in c or "Nível" in c), df_inea.columns[1])
         
         data_hora_texto = str(ultima_leitura[col_data])
-        
-        # Tenta achar a coluna de Nível (pode ser "Nivel (m)", "Nível", etc)
-        col_nivel = df_inea.columns[1] # Geralmente é a segunda
-        for c in df_inea.columns:
-            if "Nivel" in c or "Nível" in c:
-                col_nivel = c
-                break
-        
         nivel_bruto = str(ultima_leitura[col_nivel]).split()[0]
         nivel = float(nivel_bruto.replace(',', '.'))
         
-        # Converte a data
         dt_obj = pd.to_datetime(data_hora_texto, dayfirst=True, errors='coerce')
         
         return {
