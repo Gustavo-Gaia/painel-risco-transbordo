@@ -35,24 +35,40 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
+import urllib3
+
+# Desativa os avisos de "conexão insegura" que apareceriam no log
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 def buscar_inea(url_estacao):
-    # O INEA permite baixar os dados em CSV trocando o final do link
-    # Exemplo: de .html para .csv
+    # Converte o link de .html para .csv
     url_csv = url_estacao.replace(".html", ".csv")
     try:
-        # Lê o CSV ignorando as primeiras linhas de cabeçalho do INEA
-        df_inea = pd.read_csv(url_csv, sep=';', encoding='latin-1', skiprows=4)
+        # Adicionamos verify=False para ignorar o erro de certificado SSL
+        # E um timeout para não travar se o site estiver lento
+        response = requests.get(url_csv, verify=False, timeout=15)
+        
+        if response.status_code != 200:
+            return None
+
+        # Lê o conteúdo do CSV que veio na resposta
+        # O StringIO simula um arquivo para o pandas ler
+        from io import StringIO
+        csv_data = StringIO(response.text)
+        
+        df_inea = pd.read_csv(csv_data, sep=';', encoding='latin-1', skiprows=4)
+        
         if df_inea.empty:
             return None
         
-        # Pega a primeira linha de dados (a mais recente)
+        # Pega a primeira linha (mais recente)
         ultima_leitura = df_inea.iloc[0]
         
-        # Ajuste os nomes das colunas conforme o padrão do CSV do INEA
-        data_hora = str(ultima_leitura.iloc[0]) # Geralmente coluna "Data"
-        nivel = float(str(ultima_leitura.iloc[1]).replace(',', '.')) # Coluna "Nivel (m)"
+        # Col 0: Data/Hora | Col 1: Nível
+        data_hora_texto = str(ultima_leitura.iloc[0])
+        nivel = float(str(ultima_leitura.iloc[1]).replace(',', '.'))
         
-        dt_obj = pd.to_datetime(data_hora, dayfirst=True)
+        dt_obj = pd.to_datetime(data_hora_texto, dayfirst=True)
         
         return {
             "nivel": nivel,
@@ -60,7 +76,7 @@ def buscar_inea(url_estacao):
             "hora": dt_obj.time()
         }
     except Exception as e:
-        st.error(f"Erro na conexão: {e}")
+        st.error(f"Erro na captura INEA: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
