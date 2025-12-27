@@ -45,32 +45,42 @@ def carregar_aba(nome):
 
 
 def buscar_inea(url):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
     try:
-        # Acessa o site ignorando erro de SSL
-        response = requests.get(url, headers=headers, verify=False, timeout=15)
+        # Acessa o site ignorando o erro de SSL (certificado)
+        response = requests.get(url, headers=headers, verify=False, timeout=20)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # O site do INEA usa uma estrutura de texto para identificar o nível atual
-        elementos = soup.find_all(text=True)
-        nivel = None
+        # O site do INEA exibe o nível dentro de uma estrutura de texto. 
+        # Vamos buscar por todas as ocorrências de texto na página.
+        texto_pagina = soup.get_text()
         
-        for i, texto in enumerate(elementos):
-            if "Nível as:" in texto:
-                # O valor numérico (ex: 2.04) costuma ser o próximo elemento de texto
-                valor_bruto = elementos[i+1].strip()
-                nivel = float(valor_bruto.replace(',', '.'))
-                break
+        # Procuramos o padrão "Nível as: 10:15 2.04" ou similar
+        import re
+        # Esta regra procura a palavra Nível, ignora o que vem depois e pega o número decimal
+        padrao = re.search(r"Nível as:.*?(\d+[.,]\d+)", texto_pagina)
         
-        if nivel is not None:
+        if padrao:
+            valor_nivel = float(padrao.group(1).replace(',', '.'))
             return {
-                "nivel": nivel,
+                "nivel": valor_nivel,
                 "data": date.today(),
                 "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute)
             }
+        
+        # Se não achou pelo padrão acima, tenta buscar em negritos (tags <b>)
+        for b in soup.find_all('b'):
+            if '.' in b.text or ',' in b.text:
+                try:
+                    valor = float(b.text.strip().replace(',', '.'))
+                    return {"nivel": valor, "data": date.today(), "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute)}
+                except: continue
+
         return None
     except Exception as e:
-        st.error(f"Erro na captura visual: {e}")
+        st.error(f"Erro na captura: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
