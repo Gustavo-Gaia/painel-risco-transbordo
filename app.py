@@ -47,17 +47,17 @@ def carregar_aba(nome):
 def buscar_inea(url):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
-        # Acessa o site (ignora erro de SSL)
+        # Acessa o site ignorando erro de SSL
         response = requests.get(url, headers=headers, verify=False, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Procura o valor do Nível no painel (ex: o "2.04" da sua foto)
-        nivel = None
         # O site do INEA usa uma estrutura de texto para identificar o nível atual
         elementos = soup.find_all(text=True)
+        nivel = None
+        
         for i, texto in enumerate(elementos):
             if "Nível as:" in texto:
-                # O valor numérico costuma ser o próximo elemento de texto
+                # O valor numérico (ex: 2.04) costuma ser o próximo elemento de texto
                 valor_bruto = elementos[i+1].strip()
                 nivel = float(valor_bruto.replace(',', '.'))
                 break
@@ -65,8 +65,8 @@ def buscar_inea(url):
         if nivel is not None:
             return {
                 "nivel": nivel,
-                "data": date.today(), # Usa a data de hoje do sistema
-                "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute) # Hora atual
+                "data": date.today(),
+                "hora": time(pd.Timestamp.now().hour, pd.Timestamp.now().minute)
             }
         return None
     except Exception as e:
@@ -158,7 +158,7 @@ if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
     base = municipios.merge(rios, on="id_rio")
 
-    # 1. CONTROLES DE CAPTURA
+    # --- CONTROLES DE CAPTURA ---
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     
     with col_auto:
@@ -197,7 +197,7 @@ if st.session_state.admin:
 
     st.divider()
 
-    # 2. FORMULÁRIO DE MEDIÇÕES (Correção do NameError: listas criadas ANTES do for)
+    # --- FORMULÁRIO (Listas criadas ANTES do for para evitar NameError) ---
     registros = []
     registros_vazios = []
 
@@ -222,7 +222,6 @@ if st.session_state.admin:
         
         if n <= 0: registros_vazios.append(registro)
         else: registros.append(registro)
-
     st.divider()
     # (Restante do código de salvar...)
     if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
