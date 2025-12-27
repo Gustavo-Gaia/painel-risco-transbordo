@@ -6,6 +6,12 @@ import altair as alt
 import math
 from datetime import date, time
 from bs4 import BeautifulSoup
+import urllib3
+from io import StringIO
+
+# Desativa avisos de SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 # ==========================
 # CONFIGURAÇÕES
@@ -35,11 +41,6 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
-import urllib3
-from io import StringIO
-
-# Desativa avisos de SSL
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def buscar_inea(url_estacao):
     url_csv = url_estacao.replace(".html", ".csv")
