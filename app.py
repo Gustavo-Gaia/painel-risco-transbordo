@@ -5,8 +5,7 @@ import requests
 import altair as alt
 import math
 from datetime import date, time
-from bs4 import BeautifulSoup
-
+from bs4 import BeautifulSoup  # <--- IMPORTANTE: Adicionado para o INEA funcionar
 
 # ==========================
 # CONFIGURAÇÕES
@@ -14,11 +13,9 @@ from bs4 import BeautifulSoup
 st.set_page_config(page_title="Monitoramento de Rios", layout="wide")
 
 SHEET_ID = st.secrets["SHEET_ID"]
-
 ABA_RIOS = "rios"
 ABA_MUNICIPIOS = "municipios"
 ABA_LEITURAS = "leituras"
-
 FORM_URL = st.secrets["FORM_URL"]
 
 FORM_FIELDS = {
@@ -37,25 +34,20 @@ ADMIN_SENHA = st.secrets["ADMIN_SENHA"]
 def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
+
 def buscar_inea():
     url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
         response = requests.get(url, headers=headers, timeout=10)
-        # O BeautifulSoup precisa do import feito no passo 1
         soup = BeautifulSoup(response.text, 'html.parser')
         tabela = soup.find('table')
         if not tabela: return None
-        
         linhas = tabela.find_all('tr')
-        if len(linhas) < 2: return None
-        
         colunas = linhas[1].find_all('td')
         data_hora_texto = colunas[0].text.strip()
         nivel_texto = colunas[1].text.strip().replace(',', '.')
-        
         dt_obj = pd.to_datetime(data_hora_texto, format='%d/%m/%Y %H:%M')
-        
         return {
             "nivel": float(nivel_texto),
             "data": dt_obj.date(),
@@ -63,30 +55,22 @@ def buscar_inea():
         }
     except Exception as e:
         return None
+
 def calcular_situacao(nivel, cota):
     try:
         nivel = float(str(nivel).replace(",", "."))
-    except:
-        return "Leitura inválida", "gray", None, "Leitura inválida."
-
-    try:
         cota = float(str(cota).replace(",", "."))
     except:
-        return "Sem cota definida", "gray", None, "Município sem cota de transbordo."
+        return "Sem cota definida", "gray", None, "Dados insuficientes."
 
     if pd.isna(cota) or cota <= 0:
-        return "Sem cota definida", "gray", None, "Município sem cota de transbordo."
+        return "Sem cota definida", "gray", None, "Cota de transbordo não definida."
 
     perc = (nivel / cota) * 100
-
-    if perc < 85:
-        return "Normal", "green", perc, "Nível dentro da normalidade."
-    elif perc < 100:
-        return "Alerta", "orange", perc, "Atenção: nível elevado."
-    elif perc <= 120:
-        return "Transbordo", "red", perc, "Rio acima da cota de transbordo."
-    else:
-        return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
+    if perc < 85: return "Normal", "green", perc, "Nível dentro da normalidade."
+    elif perc < 100: return "Alerta", "orange", perc, "Atenção: nível elevado."
+    elif perc <= 120: return "Transbordo", "red", perc, "Rio acima da cota de transbordo."
+    else: return "Risco Hidrológico Extremo", "purple", perc, "Nível extremamente crítico."
 
 def enviar_formulario(payload):
     r = requests.post(FORM_URL, data=payload)
@@ -95,37 +79,22 @@ def enviar_formulario(payload):
 def gerar_relatorio_usuario(rios, municipios, leituras):
     base = municipios.merge(rios, on="id_rio")
     linhas = []
-
     for _, row in base.iterrows():
-        filtro = leituras[
-            (leituras["id_rio"] == row["id_rio"]) &
-            (leituras["id_municipio"] == row["id_municipio"])
-        ].sort_values(["data", "hora"])
-
-        if filtro.empty:
-            continue
-
+        filtro = leituras[(leituras["id_rio"] == row["id_rio"]) & (leituras["id_municipio"] == row["id_municipio"])].sort_values(["data", "hora"])
+        if filtro.empty: continue
         ultima = filtro.iloc[-1]
         penultima = filtro.iloc[-2] if len(filtro) > 1 else None
-
-        situacao, cor, _, _ = calcular_situacao(
-            ultima["nivel"], row.get("nivel_transbordo")
-        )
-
+        situacao, cor, _, _ = calcular_situacao(ultima["nivel"], row.get("nivel_transbordo"))
         linhas.append({
             "Rio": row["nome_rio"],
             "Município": row["nome_municipio"],
             "Cota de Transbordo": row.get("nivel_transbordo"),
             "Penúltima Medição": f"{penultima['nivel']:.2f}" if penultima is not None else "-",
             "Última Medição": f"{ultima['nivel']:.2f}",
-            "Datas": (
-                f"{penultima['data']} / {ultima['data']}"
-                if penultima is not None else ultima["data"]
-            ),
+            "Datas": f"{penultima['data']} / {ultima['data']}" if penultima is not None else ultima["data"],
             "Fonte": row.get("fonte"),
             "cor": cor
         })
-
     return pd.DataFrame(linhas)
 
 # ==========================
@@ -134,38 +103,31 @@ def gerar_relatorio_usuario(rios, municipios, leituras):
 rios = carregar_aba(ABA_RIOS)
 municipios = carregar_aba(ABA_MUNICIPIOS)
 leituras = carregar_aba(ABA_LEITURAS)
-
 leituras.columns = [c.strip() for c in leituras.columns]
 leituras["nivel"] = pd.to_numeric(leituras["nivel"], errors="coerce")
 
 # ==========================
 # ESTADOS
 # ==========================
-if "admin" not in st.session_state:
-    st.session_state.admin = False
-if "confirmar_envio" not in st.session_state:
-    st.session_state.confirmar_envio = False
-if "enviando" not in st.session_state:
-    st.session_state.enviando = False
+if "admin" not in st.session_state: st.session_state.admin = False
+if "confirmar_envio" not in st.session_state: st.session_state.confirmar_envio = False
+if "enviando" not in st.session_state: st.session_state.enviando = False
 
 # ==========================
-# SIDEBAR — LOGIN ADMIN
+# SIDEBAR
 # ==========================
 st.sidebar.title("🔐 Administrador")
-
 if not st.session_state.admin:
     senha = st.sidebar.text_input("Senha", type="password")
     if st.sidebar.button("Entrar"):
         if senha == ADMIN_SENHA:
             st.session_state.admin = True
-            st.session_state.confirmar_envio = False
             st.rerun()
         else:
             st.sidebar.error("Senha incorreta.")
 else:
     if st.sidebar.button("Sair"):
         st.session_state.admin = False
-        st.session_state.confirmar_envio = False
         st.rerun()
 
 # ==========================
@@ -173,57 +135,41 @@ else:
 # ==========================
 if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
-
     base = municipios.merge(rios, on="id_rio")
 
-    # --------------------------
-    # CONTROLES PADRÃO E CAPTURA AUTOMÁTICA
-    # --------------------------
+    # CONTROLES
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
-    
     with col_auto:
         if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
             dados_inea = buscar_inea()
             if dados_inea:
-                # O código percorre os rios e preenche apenas o que tiver "Lagoa de Cima"
                 for i, row in base.iterrows():
                     if "Lagoa de Cima" in str(row["nome_rio"]):
                         st.session_state[f"d{i}"] = dados_inea["data"]
                         st.session_state[f"h{i}"] = dados_inea["hora"]
                         st.session_state[f"n{i}"] = dados_inea["nivel"]
-                st.success("Dados capturados! Confira abaixo.")
+                st.success("Dados capturados!")
                 st.rerun()
-            else:
-                st.error("Erro ao conectar com o INEA.")
 
-    with col_man1:
-        data_padrao = st.date_input("Data padrão", value=None)
-    with col_man2:
-        hora_padrao = st.time_input("Hora padrão", value=None)
+    with col_man1: data_padrao = st.date_input("Data padrão", value=None)
+    with col_man2: hora_padrao = st.time_input("Hora padrão", value=None)
     with col_man3:
         if st.button("Replicar Manual"):
             for i in range(len(base)):
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
-    # --------------------------
-    # FORMULÁRIO DE MEDIÇÕES
-    # --------------------------
-    registros = []        # <--- ADICIONE ESTA LINHA
-    registros_vazios = [] # <--- ADICIONE ESTA LINHA
+
+    # INICIALIZAÇÃO DAS LISTAS (CORREÇÃO DO NameError)
+    registros = []
+    registros_vazios = []
 
     for i, row in base.iterrows():
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
-
-        with c1:
-            st.text(row["nome_rio"])
-        with c2:
-            st.text(row["nome_municipio"])
-        with c3:
-            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}")
-        with c4:
-            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}")
-        with c5:
-            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0)
+        with c1: st.text(row["nome_rio"])
+        with c2: st.text(row["nome_municipio"])
+        with c3: d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
+        with c4: h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
+        with c5: n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
 
         registro = {
             "id_rio": row["id_rio"],
@@ -232,81 +178,43 @@ if st.session_state.admin:
             "hora": h.strftime("%H:%M") if h else "",
             "nivel": n if n > 0 else ""
         }
-
-        if n <= 0:
-            registros_vazios.append(registro)
-        else:
-            registros.append(registro)
+        if n <= 0: registros_vazios.append(registro)
+        else: registros.append(registro)
 
     st.divider()
-
-    # --------------------------
-    # BOTÃO SALVAR
-    # --------------------------
     if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         if registros_vazios and not st.session_state.confirmar_envio:
             st.session_state.confirmar_envio = True
+            st.rerun()
         else:
             st.session_state.enviando = True
             st.rerun()
 
-    # --------------------------
-    # CONFIRMAÇÃO DE MEDIÇÕES VAZIAS
-    # --------------------------
     if st.session_state.confirmar_envio and not st.session_state.enviando:
-        st.warning(
-            f"⚠️ Existem {len(registros_vazios)} medições sem nível preenchido. "
-            "Deseja salvar mesmo assim?"
-        )
-
-        col_conf, col_cancel = st.columns(2)
-
-        with col_conf:
-            if st.button("✅ Confirmar envio"):
-                st.session_state.enviando = True
-                st.session_state.confirmar_envio = False
-                st.rerun()
-
-        with col_cancel:
-            if st.button("❌ Cancelar"):
-                st.session_state.confirmar_envio = False
-                st.rerun()
-
-    # --------------------------
-    # ENVIO DOS DADOS
-    # --------------------------
-    if st.session_state.enviando:
-        with st.spinner("⏳ Salvando medições, aguarde..."):
-            ok = True
-
-            for r in registros + registros_vazios:
-                if r["nivel"] == "":
-                    continue
-
-                payload = {
-                    FORM_FIELDS["id_rio"]: r["id_rio"],
-                    FORM_FIELDS["id_municipio"]: r["id_municipio"],
-                    FORM_FIELDS["data"]: r["data"],
-                    FORM_FIELDS["hora"]: r["hora"],
-                    FORM_FIELDS["nivel"]: r["nivel"],
-                }
-
-                if not enviar_formulario(payload):
-                    ok = False
-
-            st.session_state.enviando = False
+        st.warning(f"⚠️ Existem {len(registros_vazios)} medições vazias. Salvar assim mesmo?")
+        c_conf, c_canc = st.columns(2)
+        if c_conf.button("✅ Confirmar"):
+            st.session_state.enviando = True
             st.session_state.confirmar_envio = False
-
-            if ok:
-                st.success("✅ Medições enviadas com sucesso!")
-            else:
-                st.error("❌ Erro ao enviar algumas medições.")
-
+            st.rerun()
+        if c_canc.button("❌ Cancelar"):
+            st.session_state.confirmar_envio = False
             st.rerun()
 
-    st.divider()
-# ⛔ impede renderização da área pública
+    if st.session_state.enviando:
+        with st.spinner("Salvando..."):
+            ok = True
+            for r in registros + registros_vazios:
+                if r["nivel"] == "": continue
+                payload = {FORM_FIELDS["id_rio"]: r["id_rio"], FORM_FIELDS["id_municipio"]: r["id_municipio"], FORM_FIELDS["data"]: r["data"], FORM_FIELDS["hora"]: r["hora"], FORM_FIELDS["nivel"]: r["nivel"]}
+                if not enviar_formulario(payload): ok = False
+            st.session_state.enviando = False
+            if ok: st.success("Sucesso!")
+            else: st.error("Erro no envio.")
+            st.rerun()
     st.stop()
+
+
 # ==========================
 # PAINEL PÚBLICO — USUÁRIO
 # ==========================
