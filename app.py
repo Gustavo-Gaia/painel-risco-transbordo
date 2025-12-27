@@ -5,6 +5,7 @@ import requests
 import altair as alt
 import math
 from datetime import date, time
+from bs4 import BeautifulSoup
 
 
 # ==========================
@@ -41,12 +42,15 @@ def buscar_inea():
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
         response = requests.get(url, headers=headers, timeout=10)
+        # O BeautifulSoup precisa do import feito no passo 1
         soup = BeautifulSoup(response.text, 'html.parser')
         tabela = soup.find('table')
-        linhas = tabela.find_all('tr')
-        # Pega a primeira linha de dados
-        colunas = linhas[1].find_all('td')
+        if not tabela: return None
         
+        linhas = tabela.find_all('tr')
+        if len(linhas) < 2: return None
+        
+        colunas = linhas[1].find_all('td')
         data_hora_texto = colunas[0].text.strip()
         nivel_texto = colunas[1].text.strip().replace(',', '.')
         
@@ -204,6 +208,9 @@ if st.session_state.admin:
     # --------------------------
     # FORMULÁRIO DE MEDIÇÕES
     # --------------------------
+    registros = []        # <--- ADICIONE ESTA LINHA
+    registros_vazios = [] # <--- ADICIONE ESTA LINHA
+
     for i, row in base.iterrows():
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
 
