@@ -35,39 +35,32 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
-def buscar_inea(url):
-    # Cabeçalho completo para evitar bloqueios do site do governo
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-    }
+def buscar_inea(url_estacao):
+    # O INEA permite baixar os dados em CSV trocando o final do link
+    # Exemplo: de .html para .csv
+    url_csv = url_estacao.replace(".html", ".csv")
     try:
-        # Aumentamos o timeout para 15 segundos caso o site esteja lento
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status() # Verifica se a página carregou (Erro 404, 500, etc)
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        tabela = soup.find('table')
-        if not tabela: 
+        # Lê o CSV ignorando as primeiras linhas de cabeçalho do INEA
+        df_inea = pd.read_csv(url_csv, sep=';', encoding='latin-1', skiprows=4)
+        if df_inea.empty:
             return None
-            
-        linhas = tabela.find_all('tr')
-        # O INEA costuma colocar os dados na segunda linha (índice 1)
-        colunas = linhas[1].find_all('td')
         
-        data_hora_texto = colunas[0].text.strip()
-        nivel_texto = colunas[1].text.strip().replace(',', '.')
+        # Pega a primeira linha de dados (a mais recente)
+        ultima_leitura = df_inea.iloc[0]
         
-        # Converte para formato de data do Python
-        dt_obj = pd.to_datetime(data_hora_texto, format='%d/%m/%Y %H:%M')
+        # Ajuste os nomes das colunas conforme o padrão do CSV do INEA
+        data_hora = str(ultima_leitura.iloc[0]) # Geralmente coluna "Data"
+        nivel = float(str(ultima_leitura.iloc[1]).replace(',', '.')) # Coluna "Nivel (m)"
+        
+        dt_obj = pd.to_datetime(data_hora, dayfirst=True)
         
         return {
-            "nivel": float(nivel_texto),
+            "nivel": nivel,
             "data": dt_obj.date(),
             "hora": dt_obj.time()
         }
     except Exception as e:
-        print(f"Erro detalhado: {e}") # Isso aparece nos logs do Streamlit
+        st.error(f"Erro na conexão: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
@@ -155,40 +148,45 @@ if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
     base = municipios.merge(rios, on="id_rio")
 
+    # CONTROLES E CAPTURA AUTOMÁTICA
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     
     with col_auto:
-        col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
-    
-    with col_auto:
-        # Botão 1: Lagoa de Cima
-        if st.button("🔄 INEA: Lagoa de Cima"):
-            url_lagoa = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
-            dados = buscar_inea(url_lagoa)
-            if dados:
-                achou = False
-                for i, row in base.iterrows():
-                    if "lagoa de cima" in str(row["nome_rio"]).lower():
-                        st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
-                        achou = True
-                if achou: st.success("Lagoa de Cima atualizada!"); st.rerun()
-                else: st.warning("Rio 'Lagoa de Cima' não encontrado na lista.")
-            else: st.error("Falha ao conectar (Lagoa de Cima).")
+        st.write("🛰️ **Captura INEA**")
+        c_btn1, c_btn2 = st.columns(2)
+        
+        with c_btn1:
+            if st.button("🔄 Lagoa de Cima"):
+                url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
+                dados = buscar_inea(url)
+                if dados:
+                    achou = False
+                    for i, row in base.iterrows():
+                        if "lagoa de cima" in str(row["nome_rio"]).lower():
+                            st.session_state[f"d{i}"] = dados["data"]
+                            st.session_state[f"h{i}"] = dados["hora"]
+                            st.session_state[f"n{i}"] = dados["nivel"]
+                            achou = True
+                    if achou: st.success("Lagoa de Cima atualizada!"); st.rerun()
+                    else: st.warning("Rio 'Lagoa de Cima' não encontrado na lista.")
+                else: st.error("Erro ao conectar (Lagoa de Cima).")
 
-        # Botão 2: Santo Antônio de Pádua
-        if st.button("🔄 INEA: Rio Pomba (Pádua)"):
-            url_padua = "https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html"
-            dados = buscar_inea(url_padua)
-            if dados:
-                achou = False
-                for i, row in base.iterrows():
-                    # Ajuste o nome abaixo para como está escrito na sua planilha (ex: "Rio Pomba")
-                    if "pomba" in str(row["nome_rio"]).lower() or "pádua" in str(row["nome_rio"]).lower():
-                        st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
-                        achou = True
-                if achou: st.success("Rio Pomba atualizado!"); st.rerun()
-                else: st.warning("Rio Pomba/Pádua não encontrado na lista.")
-            else: st.error("Falha ao conectar (Pádua).")
+        with c_btn2:
+            if st.button("🔄 Rio Pomba"):
+                url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html"
+                dados = buscar_inea(url)
+                if dados:
+                    achou = False
+                    for i, row in base.iterrows():
+                        nome_rio = str(row["nome_rio"]).lower()
+                        if "pomba" in nome_rio or "pádua" in nome_rio:
+                            st.session_state[f"d{i}"] = dados["data"]
+                            st.session_state[f"h{i}"] = dados["hora"]
+                            st.session_state[f"n{i}"] = dados["nivel"]
+                            achou = True
+                    if achou: st.success("Rio Pomba atualizado!"); st.rerun()
+                    else: st.warning("Rio Pomba não encontrado na lista.")
+                else: st.error("Erro ao conectar (Rio Pomba).")
 
     with col_man1: 
         data_padrao = st.date_input("Data padrão", value=None)
@@ -200,6 +198,7 @@ if st.session_state.admin:
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
 
+    # FORMULÁRIO DE MEDIÇÕES
     registros = []
     registros_vazios = []
 
@@ -207,9 +206,15 @@ if st.session_state.admin:
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
         with c1: st.text(row["nome_rio"])
         with c2: st.text(row["nome_municipio"])
-        with c3: d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
-        with c4: h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
-        with c5: n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
+        with c3: 
+            # Corrigido: label="Data" evita o erro de acessibilidade
+            d = st.date_input("Data", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
+        with c4: 
+            # Corrigido: label="Hora" evita o erro de acessibilidade
+            h = st.time_input("Hora", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
+        with c5: 
+            # Corrigido: label="Nível" evita o erro de acessibilidade
+            n = st.number_input("Nível", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
 
         registro = {
             "id_rio": row["id_rio"],
@@ -222,6 +227,7 @@ if st.session_state.admin:
         else: registros.append(registro)
 
     st.divider()
+    # (Restante do código de salvar...)
     if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         if registros_vazios and not st.session_state.confirmar_envio:
             st.session_state.confirmar_envio = True
