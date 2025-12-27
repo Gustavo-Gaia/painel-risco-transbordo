@@ -142,11 +142,12 @@ if st.session_state.admin:
     st.title("🛠️ Painel do Administrador")
     base = municipios.merge(rios, on="id_rio")
 
-    # CONTROLES
+    # --------------------------
+    # CONTROLES E CAPTURA AUTOMÁTICA
+    # --------------------------
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
+    
     with col_auto:
-        if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
-            with col_auto:
         if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
             dados_inea = buscar_inea()
             if dados_inea:
@@ -161,32 +162,42 @@ if st.session_state.admin:
                         achou = True
                 
                 if achou:
-                    st.success("Dados capturados! Confira abaixo na linha da Lagoa de Cima.")
+                    st.success("Dados capturados! Confira abaixo.")
                     st.rerun()
                 else:
-                    st.warning("Dados obtidos, mas não encontrei 'Lagoa de Cima' na sua lista de rios.")
+                    st.warning("Dados obtidos, mas não encontrei 'Lagoa de Cima' na sua lista.")
             else:
-                st.error("Erro ao conectar com o INEA. O site deles pode estar instável.")
+                st.error("Erro ao conectar com o INEA.")
 
-    with col_man1: data_padrao = st.date_input("Data padrão", value=None)
-    with col_man2: hora_padrao = st.time_input("Hora padrão", value=None)
+    with col_man1: 
+        data_padrao = st.date_input("Data padrão", value=None)
+    with col_man2: 
+        hora_padrao = st.time_input("Hora padrão", value=None)
     with col_man3:
         if st.button("Replicar Manual"):
             for i in range(len(base)):
                 st.session_state[f"d{i}"] = data_padrao
                 st.session_state[f"h{i}"] = hora_padrao
 
-    # INICIALIZAÇÃO DAS LISTAS (CORREÇÃO DO NameError)
+    # --------------------------
+    # FORMULÁRIO DE MEDIÇÕES
+    # --------------------------
+    # Inicialização das listas para evitar NameError
     registros = []
     registros_vazios = []
 
     for i, row in base.iterrows():
         c1, c2, c3, c4, c5 = st.columns([3, 3, 2, 2, 2])
-        with c1: st.text(row["nome_rio"])
-        with c2: st.text(row["nome_municipio"])
-        with c3: d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
-        with c4: h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
-        with c5: n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
+        with c1: 
+            st.text(row["nome_rio"])
+        with c2: 
+            st.text(row["nome_municipio"])
+        with c3: 
+            d = st.date_input("", value=st.session_state.get(f"d{i}"), key=f"d{i}", label_visibility="collapsed")
+        with c4: 
+            h = st.time_input("", value=st.session_state.get(f"h{i}"), key=f"h{i}", label_visibility="collapsed")
+        with c5: 
+            n = st.number_input("", key=f"n{i}", step=0.1, min_value=0.0, label_visibility="collapsed")
 
         registro = {
             "id_rio": row["id_rio"],
@@ -195,10 +206,17 @@ if st.session_state.admin:
             "hora": h.strftime("%H:%M") if h else "",
             "nivel": n if n > 0 else ""
         }
-        if n <= 0: registros_vazios.append(registro)
-        else: registros.append(registro)
+        
+        if n <= 0: 
+            registros_vazios.append(registro)
+        else: 
+            registros.append(registro)
 
     st.divider()
+
+    # --------------------------
+    # BOTÃO SALVAR E VALIDAÇÕES
+    # --------------------------
     if st.button("💾 Salvar medições", disabled=st.session_state.enviando):
         if registros_vazios and not st.session_state.confirmar_envio:
             st.session_state.confirmar_envio = True
@@ -218,17 +236,32 @@ if st.session_state.admin:
             st.session_state.confirmar_envio = False
             st.rerun()
 
+    # --------------------------
+    # PROCESSAMENTO DO ENVIO
+    # --------------------------
     if st.session_state.enviando:
         with st.spinner("Salvando..."):
             ok = True
             for r in registros + registros_vazios:
-                if r["nivel"] == "": continue
-                payload = {FORM_FIELDS["id_rio"]: r["id_rio"], FORM_FIELDS["id_municipio"]: r["id_municipio"], FORM_FIELDS["data"]: r["data"], FORM_FIELDS["hora"]: r["hora"], FORM_FIELDS["nivel"]: r["nivel"]}
-                if not enviar_formulario(payload): ok = False
+                if r["nivel"] == "": 
+                    continue
+                payload = {
+                    FORM_FIELDS["id_rio"]: r["id_rio"], 
+                    FORM_FIELDS["id_municipio"]: r["id_municipio"], 
+                    FORM_FIELDS["data"]: r["data"], 
+                    FORM_FIELDS["hora"]: r["hora"], 
+                    FORM_FIELDS["nivel"]: r["nivel"]
+                }
+                if not enviar_formulario(payload): 
+                    ok = False
+            
             st.session_state.enviando = False
-            if ok: st.success("Sucesso!")
-            else: st.error("Erro no envio.")
+            if ok: 
+                st.success("Sucesso!")
+            else: 
+                st.error("Erro no envio.")
             st.rerun()
+
     st.stop()
 
 
