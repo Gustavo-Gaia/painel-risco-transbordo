@@ -52,7 +52,7 @@ def buscar_inea(url_estacao):
         conteudo = response.text
         linhas = conteudo.splitlines()
         
-        # Procura a linha onde a tabela começa
+        # 1. Procura a linha onde a tabela começa
         linha_cabecalho = -1
         for i, linha in enumerate(linhas):
             if "Nivel" in linha or "Nível" in linha:
@@ -60,21 +60,20 @@ def buscar_inea(url_estacao):
                 break
         
         if linha_cabecalho == -1:
-            st.warning("⚠️ O site do INEA não enviou a tabela de dados para esta estação.")
             return None
         
-        # Lê o CSV
+        # 2. Lê o CSV
         df_inea = pd.read_csv(StringIO(conteudo), sep=';', encoding='latin-1', skiprows=linha_cabecalho)
         
-        # VERIFICAÇÃO CRÍTICA: Se o dataframe tem linhas de dados
-        if len(df_inea) == 0:
-            st.warning("📴 Estação Offline: O arquivo foi baixado, mas não contém medições recentes.")
+        # 3. VERIFICAÇÃO CRÍTICA: Se o dataframe tem linhas de dados
+        if df_inea.empty or len(df_inea) < 1:
+            st.warning("📴 Estação Offline: O arquivo foi baixado, mas não contém medições recentes no site do INEA.")
             return None
         
         # Limpa os nomes das colunas
         df_inea.columns = [c.strip() for c in df_inea.columns]
         
-        # Pega a primeira linha de dados com segurança
+        # 4. Pega a primeira linha de dados com segurança
         ultima_leitura = df_inea.iloc[0]
         
         # Identifica colunas de Data e Nível
@@ -82,8 +81,10 @@ def buscar_inea(url_estacao):
         col_nivel = next((c for c in df_inea.columns if "Nivel" in c or "Nível" in c), df_inea.columns[1])
         
         data_hora_texto = str(ultima_leitura[col_data])
-        nivel_bruto = str(ultima_leitura[col_nivel]).split()[0]
-        nivel = float(nivel_bruto.replace(',', '.'))
+        
+        # Trata o valor do nível
+        nivel_raw = str(ultima_leitura[col_nivel]).split()[0]
+        nivel = float(nivel_raw.replace(',', '.'))
         
         dt_obj = pd.to_datetime(data_hora_texto, dayfirst=True, errors='coerce')
         
