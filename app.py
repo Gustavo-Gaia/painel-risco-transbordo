@@ -35,28 +35,40 @@ def carregar_aba(nome):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={nome}"
     return pd.read_csv(url)
 
-def buscar_inea():
-    url = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+def buscar_inea(url):
+    # Cabeçalho completo para evitar bloqueios do site do governo
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+    }
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        # Aumentamos o timeout para 15 segundos caso o site esteja lento
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status() # Verifica se a página carregou (Erro 404, 500, etc)
+        
         soup = BeautifulSoup(response.text, 'html.parser')
         tabela = soup.find('table')
         if not tabela: 
             return None
+            
         linhas = tabela.find_all('tr')
+        # O INEA costuma colocar os dados na segunda linha (índice 1)
         colunas = linhas[1].find_all('td')
+        
         data_hora_texto = colunas[0].text.strip()
         nivel_texto = colunas[1].text.strip().replace(',', '.')
+        
+        # Converte para formato de data do Python
         dt_obj = pd.to_datetime(data_hora_texto, format='%d/%m/%Y %H:%M')
+        
         return {
             "nivel": float(nivel_texto),
             "data": dt_obj.date(),
             "hora": dt_obj.time()
         }
     except Exception as e:
+        print(f"Erro detalhado: {e}") # Isso aparece nos logs do Streamlit
         return None
-
 def calcular_situacao(nivel, cota):
     try:
         nivel = float(str(nivel).replace(",", "."))
@@ -146,24 +158,37 @@ if st.session_state.admin:
     col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
     
     with col_auto:
-        if st.button("🔄 Buscar do INEA (Lagoa de Cima)"):
-            dados_inea = buscar_inea()
-            if dados_inea:
+        col_auto, col_man1, col_man2, col_man3 = st.columns([2, 1, 1, 1])
+    
+    with col_auto:
+        # Botão 1: Lagoa de Cima
+        if st.button("🔄 INEA: Lagoa de Cima"):
+            url_lagoa = "https://alertadecheias.inea.rj.gov.br/alertadecheias/214110320.html"
+            dados = buscar_inea(url_lagoa)
+            if dados:
                 achou = False
                 for i, row in base.iterrows():
-                    nome_rio_tabela = str(row["nome_rio"]).strip().lower()
-                    if "lagoa de cima" in nome_rio_tabela:
-                        st.session_state[f"d{i}"] = dados_inea["data"]
-                        st.session_state[f"h{i}"] = dados_inea["hora"]
-                        st.session_state[f"n{i}"] = dados_inea["nivel"]
+                    if "lagoa de cima" in str(row["nome_rio"]).lower():
+                        st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
                         achou = True
-                if achou:
-                    st.success("Dados capturados!")
-                    st.rerun()
-                else:
-                    st.warning("Lagoa de Cima não encontrada na lista.")
-            else:
-                st.error("Erro ao conectar com o INEA.")
+                if achou: st.success("Lagoa de Cima atualizada!"); st.rerun()
+                else: st.warning("Rio 'Lagoa de Cima' não encontrado na lista.")
+            else: st.error("Falha ao conectar (Lagoa de Cima).")
+
+        # Botão 2: Santo Antônio de Pádua
+        if st.button("🔄 INEA: Rio Pomba (Pádua)"):
+            url_padua = "https://alertadecheias.inea.rj.gov.br/alertadecheias/21304212020.html"
+            dados = buscar_inea(url_padua)
+            if dados:
+                achou = False
+                for i, row in base.iterrows():
+                    # Ajuste o nome abaixo para como está escrito na sua planilha (ex: "Rio Pomba")
+                    if "pomba" in str(row["nome_rio"]).lower() or "pádua" in str(row["nome_rio"]).lower():
+                        st.session_state[f"d{i}"], st.session_state[f"h{i}"], st.session_state[f"n{i}"] = dados["data"], dados["hora"], dados["nivel"]
+                        achou = True
+                if achou: st.success("Rio Pomba atualizado!"); st.rerun()
+                else: st.warning("Rio Pomba/Pádua não encontrado na lista.")
+            else: st.error("Falha ao conectar (Pádua).")
 
     with col_man1: 
         data_padrao = st.date_input("Data padrão", value=None)
