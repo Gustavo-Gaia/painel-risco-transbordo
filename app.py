@@ -36,37 +36,46 @@ def carregar_aba(nome):
     return pd.read_csv(url)
 
 import urllib3
+from io import StringIO
 
-# Desativa os avisos de "conexão insegura" que apareceriam no log
+# Desativa avisos de SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def buscar_inea(url_estacao):
-    # Converte o link de .html para .csv
     url_csv = url_estacao.replace(".html", ".csv")
     try:
-        # Adicionamos verify=False para ignorar o erro de certificado SSL
-        # E um timeout para não travar se o site estiver lento
+        # Busca o conteúdo bruto do CSV
         response = requests.get(url_csv, verify=False, timeout=15)
-        
         if response.status_code != 200:
             return None
 
-        # Lê o conteúdo do CSV que veio na resposta
-        # O StringIO simula um arquivo para o pandas ler
-        from io import StringIO
-        csv_data = StringIO(response.text)
+        conteudo = response.text
         
-        df_inea = pd.read_csv(csv_data, sep=';', encoding='latin-1', skiprows=4)
+        # Lógica para encontrar onde a tabela começa (evita o erro Out-of-bounds)
+        linhas = conteudo.splitlines()
+        linha_cabecalho = 0
+        for i, linha in enumerate(linhas):
+            if "Data" in linha and "Nivel" in linha:
+                linha_cabecalho = i
+                break
+        
+        # Lê o CSV a partir da linha correta encontrada
+        df_inea = pd.read_csv(StringIO(conteudo), sep=';', encoding='latin-1', skiprows=linha_cabecalho)
         
         if df_inea.empty:
             return None
         
-        # Pega a primeira linha (mais recente)
+        # Limpa os nomes das colunas (remove espaços extras)
+        df_inea.columns = [c.strip() for c in df_inea.columns]
+        
+        # Pega a primeira linha de dados
         ultima_leitura = df_inea.iloc[0]
         
-        # Col 0: Data/Hora | Col 1: Nível
-        data_hora_texto = str(ultima_leitura.iloc[0])
-        nivel = float(str(ultima_leitura.iloc[1]).replace(',', '.'))
+        # Tenta pegar pelos nomes das colunas para ser mais preciso
+        data_hora_texto = str(ultima_leitura["Data"])
+        # Remove unidades como "(m)" se existirem e converte para float
+        nivel_bruto = str(ultima_leitura.iloc[1]).split()[0]
+        nivel = float(nivel_bruto.replace(',', '.'))
         
         dt_obj = pd.to_datetime(data_hora_texto, dayfirst=True)
         
@@ -76,7 +85,7 @@ def buscar_inea(url_estacao):
             "hora": dt_obj.time()
         }
     except Exception as e:
-        st.error(f"Erro na captura INEA: {e}")
+        st.error(f"Erro técnico na captura: {e}")
         return None
 def calcular_situacao(nivel, cota):
     try:
